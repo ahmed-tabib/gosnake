@@ -1,0 +1,10 @@
+x-http-method-override
+x-http-method
+x-method-override
+access-control-request-method
+e-request-method
+method
+real-method
+request-method
+x-ajax-real-method
+__requestverb

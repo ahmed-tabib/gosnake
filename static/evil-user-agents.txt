@@ -1,0 +1,6 @@
+Fuzz Faster U Fool
+sqlmap/1.3.11#stable (http://sqlmap.org)
+Nuclei - Open-source project (github.com/projectdiscovery/nuclei)
+WPScan v3.1 (https://wpscan.com/wordpress-security-scanner)
+burpcollaborator.net
+Mozilla/4.0 (Hydra)

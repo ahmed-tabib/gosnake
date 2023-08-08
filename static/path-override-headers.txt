@@ -1,0 +1,11 @@
+x-request-uri
+x-rewrite-url
+x-original-url
+x-amz-website-redirect-location
+Original-Path
+Original-Url
+X-Forwarded-URI
+x-http-destinationurl
+x-http-path-override
+X-Original-Uri
+X-Forwarded-Prefix
