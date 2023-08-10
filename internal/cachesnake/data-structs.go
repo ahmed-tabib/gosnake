@@ -10,9 +10,11 @@ import (
 // Carries the client, response, & request objects to be reused
 // easier to pass to functions than each individually
 type HttpContext struct {
-	Client   *fasthttp.Client
-	Request  *fasthttp.Request
-	Response *fasthttp.Response
+	Client            *fasthttp.Client
+	Request           *fasthttp.Request
+	Response          *fasthttp.Response
+	PersistentHeaders [][]string
+	Cookies           [][]string
 }
 
 type Vuln struct {

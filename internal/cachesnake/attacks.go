@@ -39,6 +39,13 @@ func RunSpecificAttacks(target *AttackTarget, timeout time.Duration, backoff tim
 	return result
 }
 
+// Path override associated decision function
+func pathOverrideDecisionFunc(_ [][]string, target *AttackTarget, response *fasthttp.Response) bool {
+	return response.StatusCode() != target.InitialResponse.StatusCode()
+}
+
+// Attempt to cause a redirect through headers
+// Main Impact: DoS, Inappropriate Content displayed.
 func RunPathOverride(target *AttackTarget, net_ctx *HttpContext, backoff time.Duration) (bool, []string) {
 	//necessary boilerplate
 	target.AcquireTarget(backoff)
@@ -48,13 +55,54 @@ func RunPathOverride(target *AttackTarget, net_ctx *HttpContext, backoff time.Du
 	defer net_ctx.Request.Reset()
 	defer net_ctx.Response.Reset()
 
-	is_vulnerable := false
-	header_list := make([]string, 0, 2)
-
 	//If not 200 there's nothing to do
 	if target.InitialResponse.StatusCode() != 200 {
 		return false, nil
 	}
 
-	return is_vulnerable, header_list
+	//Prepare headers & header bin search args
+	header_value_pairs := make([][]string, len(PathOverrideHeaders))
+	for i := range header_value_pairs {
+		header_value_pairs[i] = []string{PathOverrideHeaders[i], "/404doesntexist"}
+	}
+
+	args := HeaderBinarySearchArgs{
+		Target:               target,
+		NetCtx:               net_ctx,
+		UsePersistentHeaders: true,
+		UseCookies:           false,
+		HeaderValuePairs:     header_value_pairs,
+		ChunkSize:            40,
+		Backoff:              backoff,
+		DecisionFunc:         pathOverrideDecisionFunc,
+	}
+
+	//Run Binary search on Headers
+	bin_search_result := HeaderBinarySearch(&args)
+
+	if len(bin_search_result) == 0 {
+		return false, nil
+	}
+
+	//See if any results are cached
+	args.HeaderValuePairs = bin_search_result
+	cache_test_result := IsHeaderEffectCached(&args)
+
+	result := make([]string, 0, len(bin_search_result))
+
+	for i, v := range cache_test_result {
+		if v {
+			result = append(result, bin_search_result[i][0])
+		}
+	}
+
+	if len(result) == 0 {
+		return false, nil
+	} else {
+		return true, result
+	}
+}
+
+func RunCookieSearch() {
+
 }

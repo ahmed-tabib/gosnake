@@ -10,16 +10,18 @@ type HeaderBinarySearchArgs struct {
 	Target               *AttackTarget
 	NetCtx               *HttpContext
 	UsePersistentHeaders bool
-	PersistentHeaders    [][]string
 	UseCookies           bool
-	Cookies              [][]string
 	HeaderValuePairs     [][]string
 	ChunkSize            int
 	Backoff              time.Duration
 	DecisionFunc         func([][]string, *AttackTarget, *fasthttp.Response) bool
 }
 
-func HeaderBinarySearch(args *HeaderBinarySearchArgs) []string {
+func HeaderBinarySearch(args *HeaderBinarySearchArgs) [][]string {
+	//Reset request & response object when we're done
+	defer args.NetCtx.Request.Reset()
+	defer args.NetCtx.Response.Reset()
+
 	//start by splitting the list into chunk_size length chunks
 	chunk_count := (len(args.HeaderValuePairs) / args.ChunkSize)
 
@@ -43,6 +45,9 @@ func HeaderBinarySearch(args *HeaderBinarySearchArgs) []string {
 	for {
 		//loop over header sublists, see which ones aren't interesting, and delete them
 		for i, header_sublist := range main_header_list {
+			//Reset request & response objects
+			args.NetCtx.Request.Reset()
+			args.NetCtx.Response.Reset()
 
 			//Setup the request URL & method
 			args.NetCtx.Request.SetRequestURI(args.Target.TargetURL)
@@ -57,14 +62,14 @@ func HeaderBinarySearch(args *HeaderBinarySearchArgs) []string {
 
 			//Add persistent headers if any
 			if args.UsePersistentHeaders {
-				for _, h_v := range args.PersistentHeaders {
+				for _, h_v := range args.NetCtx.PersistentHeaders {
 					args.NetCtx.Request.Header.Set(h_v[0], h_v[1])
 				}
 			}
 
 			//Add cookies if any
 			if args.UseCookies {
-				for _, c_v := range args.Cookies {
+				for _, c_v := range args.NetCtx.Cookies {
 					args.NetCtx.Request.Header.SetCookie(c_v[0], c_v[1])
 				}
 			}
@@ -77,8 +82,6 @@ func HeaderBinarySearch(args *HeaderBinarySearchArgs) []string {
 			//Send the request
 			err := args.NetCtx.Client.Do(args.NetCtx.Request, args.NetCtx.Response)
 			if err != nil {
-				args.NetCtx.Request.Reset()
-				args.NetCtx.Response.Reset()
 				continue
 			}
 
@@ -87,9 +90,6 @@ func HeaderBinarySearch(args *HeaderBinarySearchArgs) []string {
 				main_header_list[i] = nil
 			}
 
-			//Reset request & response objects
-			args.NetCtx.Request.Reset()
-			args.NetCtx.Response.Reset()
 			//Respect the backoff time or face the wrath of the rate-limiter
 			time.Sleep(args.Backoff)
 		}
@@ -120,10 +120,10 @@ func HeaderBinarySearch(args *HeaderBinarySearchArgs) []string {
 		}
 
 		if all_len_one {
-			result := make([]string, 0, len(main_header_list))
+			result := make([][]string, 0, len(main_header_list))
 
 			for _, v := range main_header_list {
-				result = append(result, v[0][0])
+				result = append(result, v[0])
 			}
 
 			return result
@@ -137,4 +137,76 @@ func HeaderBinarySearch(args *HeaderBinarySearchArgs) []string {
 		}
 		main_header_list = new_main_header_list
 	}
+}
+
+func IsHeaderEffectCached(args *HeaderBinarySearchArgs) []bool {
+	//Reset request & response object when we're done
+	defer args.NetCtx.Request.Reset()
+	defer args.NetCtx.Response.Reset()
+
+	result := make([]bool, len(args.HeaderValuePairs))
+
+	//loop over all header-value pairs & determine if their effect is cached
+	for i, h_v_pair := range args.HeaderValuePairs {
+		//Reset request & response objects
+		args.NetCtx.Request.Reset()
+		args.NetCtx.Response.Reset()
+
+		//Setup the request URL & method
+		args.NetCtx.Request.SetRequestURI(args.Target.TargetURL)
+		args.NetCtx.Request.Header.SetMethod("GET")
+
+		//Set URL params & cache buster headers
+		cache_buster := GenRandString(10)
+		query_params := args.NetCtx.Request.URI().QueryArgs()
+		query_params.Add("cachebuster", cache_buster)
+
+		args.NetCtx.Request.Header.Set("Accept", "*/*, text/"+cache_buster)
+
+		//Add persistent headers if any
+		if args.UsePersistentHeaders {
+			for _, h_v := range args.NetCtx.PersistentHeaders {
+				args.NetCtx.Request.Header.Set(h_v[0], h_v[1])
+			}
+		}
+
+		//Add cookies if any
+		if args.UseCookies {
+			for _, c_v := range args.NetCtx.Cookies {
+				args.NetCtx.Request.Header.SetCookie(c_v[0], c_v[1])
+			}
+		}
+
+		//Set header to be tested
+		args.NetCtx.Request.Header.Set(h_v_pair[0], h_v_pair[1])
+
+		//Send the request with the header
+		err := args.NetCtx.Client.Do(args.NetCtx.Request, args.NetCtx.Response)
+		if err != nil {
+			continue
+		}
+
+		//Note the result with the header present
+		result_with_header := args.DecisionFunc([][]string{h_v_pair}, args.Target, args.NetCtx.Response)
+
+		//Remove tested header
+		args.NetCtx.Request.Header.Del(h_v_pair[0])
+
+		//Resend the request without the header
+		err = args.NetCtx.Client.Do(args.NetCtx.Request, args.NetCtx.Response)
+		if err != nil {
+			continue
+		}
+
+		//Note result without the header present
+		result_without_header := args.DecisionFunc([][]string{h_v_pair}, args.Target, args.NetCtx.Response)
+
+		//The result is cached only if both tests are true
+		result[i] = result_with_header && result_without_header
+
+		//Respect the backoff time or face the wrath of the rate-limiter
+		time.Sleep(args.Backoff)
+	}
+
+	return result
 }
