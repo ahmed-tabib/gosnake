@@ -7,32 +7,32 @@ import (
 )
 
 type HeaderBinarySearchArgs struct {
-	t                      *Target
-	net_ctx                *HttpContext
-	use_persistent_headers bool
-	persistent_headers     [][]string
-	use_cookies            bool
-	cookies                [][]string
-	header_value_pairs     [][]string
-	chunk_size             int
-	backoff                time.Duration
-	decision_func          func([][]string, *Target, *fasthttp.Response) bool
+	Target               *AttackTarget
+	NetCtx               *HttpContext
+	UsePersistentHeaders bool
+	PersistentHeaders    [][]string
+	UseCookies           bool
+	Cookies              [][]string
+	HeaderValuePairs     [][]string
+	ChunkSize            int
+	Backoff              time.Duration
+	DecisionFunc         func([][]string, *AttackTarget, *fasthttp.Response) bool
 }
 
 func HeaderBinarySearch(args *HeaderBinarySearchArgs) []string {
 	//start by splitting the list into chunk_size length chunks
-	chunk_count := (len(args.header_value_pairs) / args.chunk_size)
+	chunk_count := (len(args.HeaderValuePairs) / args.ChunkSize)
 
 	main_header_list := make([][][]string, 0, chunk_count+1)
 
-	for i := 0; i < chunk_count; i += args.chunk_size {
-		main_header_list = append(main_header_list, args.header_value_pairs[i:i+args.chunk_size])
+	for i := 0; i < chunk_count; i += args.ChunkSize {
+		main_header_list = append(main_header_list, args.HeaderValuePairs[i:i+args.ChunkSize])
 	}
 
-	last_chunk_len := (len(args.header_value_pairs) % args.chunk_size)
+	last_chunk_len := (len(args.HeaderValuePairs) % args.ChunkSize)
 	if last_chunk_len != 0 {
 		chunk_count += 1
-		main_header_list = append(main_header_list, args.header_value_pairs[len(args.header_value_pairs)-last_chunk_len:])
+		main_header_list = append(main_header_list, args.HeaderValuePairs[len(args.HeaderValuePairs)-last_chunk_len:])
 	}
 
 	//define a temporary function we use to remove an element from a slice
@@ -45,50 +45,53 @@ func HeaderBinarySearch(args *HeaderBinarySearchArgs) []string {
 		for i, header_sublist := range main_header_list {
 
 			//Setup the request URL & method
-			args.net_ctx.request.SetRequestURI(args.t.target_url)
-			args.net_ctx.request.Header.SetMethod("GET")
+			args.NetCtx.Request.SetRequestURI(args.Target.TargetURL)
+			args.NetCtx.Request.Header.SetMethod("GET")
 
 			//Set URL params & cache buster headers
 			cache_buster := GenRandString(10)
-			query_params := args.net_ctx.request.URI().QueryArgs()
+			query_params := args.NetCtx.Request.URI().QueryArgs()
 			query_params.Add("cachebuster", cache_buster)
 
-			args.net_ctx.request.Header.Set("Accept", "*/*, text/"+cache_buster)
+			args.NetCtx.Request.Header.Set("Accept", "*/*, text/"+cache_buster)
 
 			//Add persistent headers if any
-			if args.use_persistent_headers {
-				for _, h_v := range args.persistent_headers {
-					args.net_ctx.request.Header.Set(h_v[0], h_v[1])
+			if args.UsePersistentHeaders {
+				for _, h_v := range args.PersistentHeaders {
+					args.NetCtx.Request.Header.Set(h_v[0], h_v[1])
 				}
 			}
 
 			//Add cookies if any
-			if args.use_cookies {
-				for _, c_v := range args.cookies {
-					args.net_ctx.request.Header.SetCookie(c_v[0], c_v[1])
+			if args.UseCookies {
+				for _, c_v := range args.Cookies {
+					args.NetCtx.Request.Header.SetCookie(c_v[0], c_v[1])
 				}
 			}
 
 			//Add the headers
 			for _, h := range header_sublist {
-				args.net_ctx.request.Header.Add(h[0], h[1])
+				args.NetCtx.Request.Header.Add(h[0], h[1])
 			}
 
 			//Send the request
-			err := args.net_ctx.client.Do(args.net_ctx.request, args.net_ctx.response)
+			err := args.NetCtx.Client.Do(args.NetCtx.Request, args.NetCtx.Response)
 			if err != nil {
-				args.net_ctx.request.Reset()
-				args.net_ctx.response.Reset()
+				args.NetCtx.Request.Reset()
+				args.NetCtx.Response.Reset()
 				continue
 			}
 
 			//Mark the values to be deleted as nil
-			if !args.decision_func(header_sublist, args.t, args.net_ctx.response) {
+			if !args.DecisionFunc(header_sublist, args.Target, args.NetCtx.Response) {
 				main_header_list[i] = nil
 			}
 
+			//Reset request & response objects
+			args.NetCtx.Request.Reset()
+			args.NetCtx.Response.Reset()
 			//Respect the backoff time or face the wrath of the rate-limiter
-			time.Sleep(args.backoff)
+			time.Sleep(args.Backoff)
 		}
 
 		//remove nil & empty entries (empty entries occurr during the last split sometimes)

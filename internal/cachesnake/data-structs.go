@@ -10,44 +10,45 @@ import (
 // Carries the client, response, & request objects to be reused
 // easier to pass to functions than each individually
 type HttpContext struct {
-	client   *fasthttp.Client
-	request  *fasthttp.Request
-	response *fasthttp.Response
+	Client   *fasthttp.Client
+	Request  *fasthttp.Request
+	Response *fasthttp.Response
 }
 
 type Vuln struct {
-	name              string
-	offending_headers []string
-	impact            []string
+	Name             string
+	OffendingHeaders []string
+	Impact           []string
 }
 
 type SpecificAttackResult struct {
-	t            *Target
-	vulns        []Vuln
-	time_started time.Time
-	time_stopped time.Time
+	Target      *AttackTarget
+	VulnList    []Vuln
+	TimeStarted time.Time
+	TimeStopped time.Time
 }
 
 type BBProgram struct {
-	program_name    string
-	program_url     string
-	offers_bounties bool
-	in_scope        []string
-	out_of_scope    []string
+	ProgramName    string
+	ProgramURL     string
+	Platform       string
+	OffersBounties bool
+	InScope        []string
+	OutOfScope     []string
 }
 
 type Subdomain struct {
-	value          string
-	parent_program *BBProgram
-	last_requested time.Time
-	sub_lock       sync.Mutex
+	Value         string
+	ParentProgram *BBProgram
+	LastRequested time.Time
+	SubLock       sync.Mutex
 }
 
-type Target struct {
-	target_url         string
-	initial_response   *fasthttp.Response
-	parent_subdomain   *Subdomain
-	cookie_search_only bool
+type AttackTarget struct {
+	TargetURL        string
+	InitialResponse  *fasthttp.Response
+	ParentSubdomain  *Subdomain
+	CookieSearchOnly bool
 }
 
 // This function is meant to enforce a backoff time between requests
@@ -55,10 +56,10 @@ type Target struct {
 // subdomain maybe tested simultaneously, which is why this function
 // MUST be called before initiating any requests to a target.
 // The lock is at the level of the subdomain. rate-limit is a bitch
-func (t *Target) AcquireTarget(backoff time.Duration) {
+func (target *AttackTarget) AcquireTarget(backoff time.Duration) {
 
-	t.parent_subdomain.sub_lock.Lock()
-	duration := time.Since(t.parent_subdomain.last_requested)
+	target.ParentSubdomain.SubLock.Lock()
+	duration := time.Since(target.ParentSubdomain.LastRequested)
 
 	if duration < backoff {
 		time.Sleep(backoff - duration)
@@ -66,11 +67,11 @@ func (t *Target) AcquireTarget(backoff time.Duration) {
 }
 
 // Once we're done sending requests to the target, we release it.
-func (t *Target) ReleaseTarget() {
-	t.parent_subdomain.sub_lock.Unlock()
+func (target *AttackTarget) ReleaseTarget() {
+	target.ParentSubdomain.SubLock.Unlock()
 }
 
 // Just to update the last_requested
-func (t *Target) MarkRequested() {
-	t.parent_subdomain.last_requested = time.Now()
+func (target *AttackTarget) MarkRequested() {
+	target.ParentSubdomain.LastRequested = time.Now()
 }
