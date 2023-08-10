@@ -7,6 +7,14 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+// Carries the client, response, & request objects to be reused
+// easier to pass to functions than each individually
+type HttpContext struct {
+	client   *fasthttp.Client
+	request  *fasthttp.Request
+	response *fasthttp.Response
+}
+
 type Vuln struct {
 	name              string
 	offending_headers []string
