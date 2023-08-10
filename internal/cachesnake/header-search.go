@@ -25,8 +25,8 @@ func HeaderBinarySearch(args *HeaderBinarySearchArgs) []string {
 
 	main_header_list := make([][][]string, 0, chunk_count+1)
 
-	for i := 0; i < chunk_count; i += args.ChunkSize {
-		main_header_list = append(main_header_list, args.HeaderValuePairs[i:i+args.ChunkSize])
+	for i := 0; i < chunk_count; i++ {
+		main_header_list = append(main_header_list, args.HeaderValuePairs[(i*args.ChunkSize):((i*args.ChunkSize)+args.ChunkSize)])
 	}
 
 	last_chunk_len := (len(args.HeaderValuePairs) % args.ChunkSize)
