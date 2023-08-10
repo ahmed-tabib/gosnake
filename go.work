@@ -1,1 +1,6 @@
 go 1.20
+
+use (
+	./cmd/gosnake-auto
+	./internal/cachesnake
+)
