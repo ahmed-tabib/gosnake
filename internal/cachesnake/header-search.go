@@ -7,14 +7,16 @@ import (
 )
 
 type HeaderBinarySearchArgs struct {
-	Target               *AttackTarget
-	NetCtx               *HttpContext
-	UsePersistentHeaders bool
-	UseCookies           bool
-	HeaderValuePairs     [][]string
-	ChunkSize            int
-	Backoff              time.Duration
-	DecisionFunc         func([][]string, *AttackTarget, *fasthttp.Response) bool
+	Target                *AttackTarget
+	NetCtx                *HttpContext
+	UsePersistentHeaders  bool
+	UseCookies            bool
+	DisableNormalization  bool
+	DisableSpecialHeaders bool
+	HeaderValuePairs      [][]string
+	ChunkSize             int
+	Backoff               time.Duration
+	DecisionFunc          func([][]string, *AttackTarget, *fasthttp.Response) bool
 }
 
 func HeaderBinarySearch(args *HeaderBinarySearchArgs) [][]string {
@@ -37,9 +39,6 @@ func HeaderBinarySearch(args *HeaderBinarySearchArgs) [][]string {
 		main_header_list = append(main_header_list, args.HeaderValuePairs[len(args.HeaderValuePairs)-last_chunk_len:])
 	}
 
-	//define a temporary function we use to remove an element from a slice
-	remove := func(s [][][]string, i int) [][][]string { s[len(s)-1], s[i] = nil, s[len(s)-1]; return s[:len(s)-1] }
-
 	//Now, we have a list of chunk sized lists of pairs of headers & values, wheew!
 	//We perform binary search on the header list now
 	for {
@@ -52,6 +51,18 @@ func HeaderBinarySearch(args *HeaderBinarySearchArgs) [][]string {
 			//Setup the request URL & method
 			args.NetCtx.Request.SetRequestURI(args.Target.TargetURL)
 			args.NetCtx.Request.Header.SetMethod("GET")
+
+			//Setup normalization & necessary headers
+			if args.DisableNormalization {
+				args.NetCtx.Request.Header.DisableNormalizing()
+			}
+
+			if args.DisableSpecialHeaders {
+				args.NetCtx.Request.Header.DisableSpecialHeader()
+				args.NetCtx.Request.UseHostHeader = true
+				args.NetCtx.Request.Header.Set("Host", string(args.NetCtx.Request.Host()))
+				args.NetCtx.Request.Header.Set("User-Agent", args.NetCtx.Client.Name)
+			}
 
 			//Set URL params & cache buster headers
 			cache_buster := GenRandString(10)
@@ -76,7 +87,7 @@ func HeaderBinarySearch(args *HeaderBinarySearchArgs) [][]string {
 
 			//Add the headers
 			for _, h := range header_sublist {
-				args.NetCtx.Request.Header.Add(h[0], h[1])
+				args.NetCtx.Request.Header.Set(h[0], h[1])
 			}
 
 			//Send the request
@@ -98,7 +109,7 @@ func HeaderBinarySearch(args *HeaderBinarySearchArgs) [][]string {
 		main_list_len := len(main_header_list)
 		for i := 0; i < main_list_len; i++ {
 			if main_header_list[i] == nil || len(main_header_list[i]) == 0 {
-				main_header_list = remove(main_header_list, i)
+				main_header_list = FastRemove(main_header_list, i)
 				main_list_len -= 1
 				i -= 1
 			}
@@ -155,6 +166,18 @@ func IsHeaderEffectCached(args *HeaderBinarySearchArgs) []bool {
 		//Setup the request URL & method
 		args.NetCtx.Request.SetRequestURI(args.Target.TargetURL)
 		args.NetCtx.Request.Header.SetMethod("GET")
+
+		//Setup normalization & necessary headers
+		if args.DisableNormalization {
+			args.NetCtx.Request.Header.DisableNormalizing()
+		}
+
+		if args.DisableSpecialHeaders {
+			args.NetCtx.Request.Header.DisableSpecialHeader()
+			args.NetCtx.Request.UseHostHeader = true
+			args.NetCtx.Request.Header.Set("Host", string(args.NetCtx.Request.Host()))
+			args.NetCtx.Request.Header.Set("User-Agent", args.NetCtx.Client.Name)
+		}
 
 		//Set URL params & cache buster headers
 		cache_buster := GenRandString(10)
