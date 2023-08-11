@@ -19,11 +19,13 @@ type HttpContext struct {
 
 type Vuln struct {
 	Name             string
+	Details          string
 	OffendingHeaders []string
 	Impact           []string
+	TimeFound        time.Time
 }
 
-type SpecificAttackResult struct {
+type AttackResult struct {
 	Target      *AttackTarget
 	VulnList    []Vuln
 	TimeStarted time.Time
