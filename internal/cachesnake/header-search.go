@@ -16,7 +16,7 @@ type HeaderBinarySearchArgs struct {
 	HeaderValuePairs      [][]string
 	ChunkSize             int
 	Backoff               time.Duration
-	DecisionFunc          func([][]string, *AttackTarget, *fasthttp.Response) bool
+	DecisionFunc          func([][]string, *AttackTarget, *fasthttp.Response) Decision
 }
 
 func HeaderBinarySearch(args *HeaderBinarySearchArgs) [][]string {
@@ -97,7 +97,8 @@ func HeaderBinarySearch(args *HeaderBinarySearchArgs) [][]string {
 			}
 
 			//Mark the values to be deleted as nil
-			if !args.DecisionFunc(header_sublist, args.Target, args.NetCtx.Response) {
+			decision := args.DecisionFunc(header_sublist, args.Target, args.NetCtx.Response)
+			if !decision.ShouldKeep {
 				main_header_list[i] = nil
 			}
 
@@ -150,12 +151,12 @@ func HeaderBinarySearch(args *HeaderBinarySearchArgs) [][]string {
 	}
 }
 
-func IsHeaderEffectCached(args *HeaderBinarySearchArgs) []bool {
+func IsHeaderEffectCached(args *HeaderBinarySearchArgs) []Decision {
 	//Reset request & response object when we're done
 	defer args.NetCtx.Request.Reset()
 	defer args.NetCtx.Response.Reset()
 
-	result := make([]bool, len(args.HeaderValuePairs))
+	result := make([]Decision, len(args.HeaderValuePairs))
 
 	//loop over all header-value pairs & determine if their effect is cached
 	for i, h_v_pair := range args.HeaderValuePairs {
@@ -210,6 +211,7 @@ func IsHeaderEffectCached(args *HeaderBinarySearchArgs) []bool {
 		}
 
 		//Note the result with the header present
+		//Keep track of the reason of the decision
 		result_with_header := args.DecisionFunc([][]string{h_v_pair}, args.Target, args.NetCtx.Response)
 
 		//Remove tested header
@@ -225,7 +227,8 @@ func IsHeaderEffectCached(args *HeaderBinarySearchArgs) []bool {
 		result_without_header := args.DecisionFunc([][]string{h_v_pair}, args.Target, args.NetCtx.Response)
 
 		//The result is cached only if both tests are true
-		result[i] = result_with_header && result_without_header
+		result[i].ShouldKeep = result_with_header.ShouldKeep && result_without_header.ShouldKeep
+		result[i].Reasons = result_with_header.Reasons
 
 		//Respect the backoff time or face the wrath of the rate-limiter
 		time.Sleep(args.Backoff)

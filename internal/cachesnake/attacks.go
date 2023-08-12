@@ -1,7 +1,6 @@
 package cachesnake
 
 import (
-	"strings"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -40,11 +39,6 @@ func RunAttacks(target *AttackTarget, timeout time.Duration, backoff time.Durati
 	return result
 }
 
-// Path override associated decision function
-func pathOverrideDecisionFunc(_ [][]string, target *AttackTarget, response *fasthttp.Response) bool {
-	return response.StatusCode() != target.InitialResponse.StatusCode()
-}
-
 // Attempt to cause a 404
 // Main Impact: DoS, Inappropriate Content displayed.
 func RunPathOverride(target *AttackTarget, net_ctx *HttpContext, backoff time.Duration) (bool, []string) {
@@ -77,7 +71,7 @@ func RunPathOverride(target *AttackTarget, net_ctx *HttpContext, backoff time.Du
 		HeaderValuePairs:      header_value_pairs,
 		ChunkSize:             40,
 		Backoff:               backoff,
-		DecisionFunc:          pathOverrideDecisionFunc,
+		DecisionFunc:          DecisionFuncStatusCodeModified,
 	}
 
 	//Run Binary search on Headers
@@ -94,7 +88,7 @@ func RunPathOverride(target *AttackTarget, net_ctx *HttpContext, backoff time.Du
 	result := make([]string, 0, len(bin_search_result))
 
 	for i, v := range cache_test_result {
-		if v {
+		if v.ShouldKeep {
 			result = append(result, bin_search_result[i][0])
 		}
 	}
@@ -104,11 +98,6 @@ func RunPathOverride(target *AttackTarget, net_ctx *HttpContext, backoff time.Du
 	} else {
 		return true, result
 	}
-}
-
-// Protocol override associated decision function
-func protoOverrideDecisionFunc(_ [][]string, target *AttackTarget, response *fasthttp.Response) bool {
-	return (response.StatusCode() != target.InitialResponse.StatusCode()) && (response.StatusCode() >= 301 && response.StatusCode() <= 308)
 }
 
 // Attempt to cause a redirect
@@ -143,7 +132,7 @@ func RunProtoOverride(target *AttackTarget, net_ctx *HttpContext, backoff time.D
 		HeaderValuePairs:      header_value_pairs,
 		ChunkSize:             40,
 		Backoff:               backoff,
-		DecisionFunc:          protoOverrideDecisionFunc,
+		DecisionFunc:          DecisionFuncStatusCodeRedirect,
 	}
 
 	//Run Binary search on Headers
@@ -160,7 +149,7 @@ func RunProtoOverride(target *AttackTarget, net_ctx *HttpContext, backoff time.D
 	result := make([]string, 0, len(bin_search_result))
 
 	for i, v := range cache_test_result {
-		if v {
+		if v.ShouldKeep {
 			result = append(result, bin_search_result[i][0])
 		}
 	}
@@ -204,7 +193,7 @@ func RunPortOverride(target *AttackTarget, net_ctx *HttpContext, backoff time.Du
 		HeaderValuePairs:      header_value_pairs,
 		ChunkSize:             40,
 		Backoff:               backoff,
-		DecisionFunc:          pathOverrideDecisionFunc,
+		DecisionFunc:          DecisionFuncStatusCodeModified,
 		//we use the same decision function as path override
 	}
 
@@ -222,7 +211,7 @@ func RunPortOverride(target *AttackTarget, net_ctx *HttpContext, backoff time.Du
 	result := make([]string, 0, len(bin_search_result))
 
 	for i, v := range cache_test_result {
-		if v {
+		if v.ShouldKeep {
 			result = append(result, bin_search_result[i][0])
 		}
 	}
@@ -296,11 +285,6 @@ func RunLargeHeaderCount(target *AttackTarget, net_ctx *HttpContext, backoff tim
 	return result_with_header && result_without_header, nil
 }
 
-// Method override associated decision function
-func methodOverrideDecisionFunc(_ [][]string, target *AttackTarget, response *fasthttp.Response) bool {
-	return len(response.Body()) <= 2 && len(target.InitialResponse.Body()) > 2
-}
-
 // Attempt to cause a HEAD response
 // Main Impact: DoS
 func RunMethodOverride(target *AttackTarget, net_ctx *HttpContext, backoff time.Duration) (bool, []string) {
@@ -333,7 +317,7 @@ func RunMethodOverride(target *AttackTarget, net_ctx *HttpContext, backoff time.
 		HeaderValuePairs:      header_value_pairs,
 		ChunkSize:             40,
 		Backoff:               backoff,
-		DecisionFunc:          methodOverrideDecisionFunc,
+		DecisionFunc:          DecisionFuncSmallBody,
 	}
 
 	//Run Binary search on Headers
@@ -350,7 +334,7 @@ func RunMethodOverride(target *AttackTarget, net_ctx *HttpContext, backoff time.
 	result := make([]string, 0, len(bin_search_result))
 
 	for i, v := range cache_test_result {
-		if v {
+		if v.ShouldKeep {
 			result = append(result, bin_search_result[i][0])
 		}
 	}
@@ -360,15 +344,6 @@ func RunMethodOverride(target *AttackTarget, net_ctx *HttpContext, backoff time.
 	} else {
 		return true, result
 	}
-}
-
-// Permanent redirect associated decision function
-func permaRedirectDecisionFunc(_ [][]string, _ *AttackTarget, response *fasthttp.Response) bool {
-	if response.StatusCode() > 308 || response.StatusCode() < 301 {
-		return false
-	}
-	response.Header.EnableNormalizing()
-	return strings.Contains(string(response.Header.Peek("location")), "elbo7")
 }
 
 // Attempt to cause a permanent redirect
@@ -404,7 +379,7 @@ func RunPermaRedirect(target *AttackTarget, net_ctx *HttpContext, backoff time.D
 		HeaderValuePairs:      header_value_pairs,
 		ChunkSize:             40,
 		Backoff:               backoff,
-		DecisionFunc:          permaRedirectDecisionFunc,
+		DecisionFunc:          DecisionFuncLocationHeader,
 	}
 
 	//Run Binary search on Headers
@@ -421,7 +396,7 @@ func RunPermaRedirect(target *AttackTarget, net_ctx *HttpContext, backoff time.D
 	result := make([]string, 0, len(bin_search_result))
 
 	for i, v := range cache_test_result {
-		if v {
+		if v.ShouldKeep {
 			result = append(result, bin_search_result[i][0])
 		}
 	}
@@ -506,19 +481,6 @@ func RunEvilAgent(target *AttackTarget, net_ctx *HttpContext, backoff time.Durat
 	}
 }
 
-// Host override associated decision function
-func hostOverrideDecisionFunc(header_value_pairs [][]string, target *AttackTarget, response *fasthttp.Response) bool {
-	if target.InitialResponse.StatusCode() != response.StatusCode() {
-		return true
-	}
-	// we'll only consider the random token in the middle ('www.token.com')
-	if strings.Contains(string(response.Body()), strings.Split(header_value_pairs[0][1], ".")[1]) {
-		return true
-	}
-
-	return false
-}
-
 // Attempt to cause a Host override
 // Main Impact: DoS, XSS
 func RunHostOverride(target *AttackTarget, net_ctx *HttpContext, backoff time.Duration) (bool, []string) {
@@ -547,7 +509,7 @@ func RunHostOverride(target *AttackTarget, net_ctx *HttpContext, backoff time.Du
 		HeaderValuePairs:      header_value_pairs,
 		ChunkSize:             40,
 		Backoff:               backoff,
-		DecisionFunc:          hostOverrideDecisionFunc,
+		DecisionFunc:          DecisionFuncHostOverride,
 	}
 
 	//Run Binary search on Headers
@@ -564,7 +526,7 @@ func RunHostOverride(target *AttackTarget, net_ctx *HttpContext, backoff time.Du
 	result := make([]string, 0, len(bin_search_result))
 
 	for i, v := range cache_test_result {
-		if v {
+		if v.ShouldKeep {
 			result = append(result, bin_search_result[i][0])
 		}
 	}
@@ -574,15 +536,6 @@ func RunHostOverride(target *AttackTarget, net_ctx *HttpContext, backoff time.Du
 	} else {
 		return true, result
 	}
-}
-
-// Port Dos associated decision function
-func portDosDecisionFunc(_ [][]string, _ *AttackTarget, response *fasthttp.Response) bool {
-	if response.StatusCode() > 308 || response.StatusCode() < 301 {
-		return false
-	}
-	response.Header.EnableNormalizing()
-	return strings.Contains(string(response.Header.Peek("location")), ":1337")
 }
 
 // Attempt to cause a Port dos
@@ -623,7 +576,7 @@ func RunPortDos(target *AttackTarget, net_ctx *HttpContext, backoff time.Duratio
 		HeaderValuePairs:      header_value_pairs,
 		ChunkSize:             40,
 		Backoff:               backoff,
-		DecisionFunc:          portDosDecisionFunc,
+		DecisionFunc:          DecisionFuncLocationHeader,
 	}
 
 	//Run Binary search on Headers
@@ -640,7 +593,7 @@ func RunPortDos(target *AttackTarget, net_ctx *HttpContext, backoff time.Duratio
 	result := make([]string, 0, len(bin_search_result))
 
 	for i, v := range cache_test_result {
-		if v {
+		if v.ShouldKeep {
 			result = append(result, bin_search_result[i][0])
 		}
 	}
@@ -681,7 +634,7 @@ func RunIllegalHeader(target *AttackTarget, net_ctx *HttpContext, backoff time.D
 		HeaderValuePairs:      header_value_pairs,
 		ChunkSize:             1,
 		Backoff:               backoff,
-		DecisionFunc:          pathOverrideDecisionFunc,
+		DecisionFunc:          DecisionFuncStatusCodeModified,
 	}
 
 	//Run Binary search on Headers
@@ -698,7 +651,7 @@ func RunIllegalHeader(target *AttackTarget, net_ctx *HttpContext, backoff time.D
 	result := make([]string, 0, len(bin_search_result))
 
 	for i, v := range cache_test_result {
-		if v {
+		if v.ShouldKeep {
 			result = append(result, bin_search_result[i][0])
 		}
 	}
@@ -708,11 +661,6 @@ func RunIllegalHeader(target *AttackTarget, net_ctx *HttpContext, backoff time.D
 	} else {
 		return true, result
 	}
-}
-
-// header bruteforce associated decision function
-func bruteforceDecisionFunc(_ [][]string, target *AttackTarget, response *fasthttp.Response) bool {
-	return response.StatusCode() != target.InitialResponse.StatusCode()
 }
 
 // Try many different headers
@@ -747,7 +695,7 @@ func RunBruteforce(target *AttackTarget, net_ctx *HttpContext, backoff time.Dura
 		HeaderValuePairs:      header_value_pairs,
 		ChunkSize:             40,
 		Backoff:               backoff,
-		DecisionFunc:          bruteforceDecisionFunc,
+		DecisionFunc:          DecisionFuncBruteforce,
 	}
 
 	//Run Binary search on Headers
@@ -764,7 +712,7 @@ func RunBruteforce(target *AttackTarget, net_ctx *HttpContext, backoff time.Dura
 	result := make([]string, 0, len(bin_search_result))
 
 	for i, v := range cache_test_result {
-		if v {
+		if v.ShouldKeep {
 			result = append(result, bin_search_result[i][0])
 		}
 	}
