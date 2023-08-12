@@ -22,26 +22,35 @@ type Decision struct {
 
 // keep the header if the status code was modified
 func DecisionFuncStatusCodeModified(_ [][]string, target *AttackTarget, response *fasthttp.Response) Decision {
-	return Decision{
-		response.StatusCode() != target.InitialResponse.StatusCode(),
-		[]int{reason_StatusCodeModified},
+	shouldKeep := response.StatusCode() != target.InitialResponse.StatusCode()
+
+	if shouldKeep {
+		return Decision{true, []int{reason_StatusCodeModified}}
 	}
+
+	return Decision{false, nil}
 }
 
 // keep the header if the status code is changed to a redirect
 func DecisionFuncStatusCodeRedirect(_ [][]string, target *AttackTarget, response *fasthttp.Response) Decision {
-	return Decision{
-		(response.StatusCode() != target.InitialResponse.StatusCode()) && (response.StatusCode() >= 301 && response.StatusCode() <= 308),
-		[]int{reason_StatusCodeModified},
+	shouldKeep := (response.StatusCode() != target.InitialResponse.StatusCode()) && (response.StatusCode() >= 301 && response.StatusCode() <= 308)
+
+	if shouldKeep {
+		return Decision{true, []int{reason_StatusCodeModified}}
 	}
+
+	return Decision{false, nil}
 }
 
 // keep the header if the body becomes really small (HEAD response)
 func DecisionFuncSmallBody(_ [][]string, target *AttackTarget, response *fasthttp.Response) Decision {
-	return Decision{
-		len(response.Body()) <= 2 && len(target.InitialResponse.Body()) > 2,
-		[]int{reason_MethodModified},
+	shouldKeep := len(response.Body()) <= 2 && len(target.InitialResponse.Body()) > 2
+
+	if shouldKeep {
+		return Decision{true, []int{reason_MethodModified}}
 	}
+
+	return Decision{false, nil}
 }
 
 // keep the header if the location response header contains a reflected value
