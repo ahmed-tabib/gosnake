@@ -683,7 +683,7 @@ func RunBruteforce(target *AttackTarget, net_ctx *HttpContext, backoff time.Dura
 	//Prepare headers & header bin search args
 	header_value_pairs := make([][]string, len(AllHeaders))
 	for i := range header_value_pairs {
-		header_value_pairs[i] = []string{AllHeaders[i], GenRandString(16)}
+		header_value_pairs[i] = []string{AllHeaders[i], "wcpcanary007" + GenRandString(10)}
 	}
 
 	args := HeaderBinarySearchArgs{

@@ -61,7 +61,7 @@ func HeaderBinarySearch(args *HeaderBinarySearchArgs) [][]string {
 				args.NetCtx.Request.Header.DisableSpecialHeader()
 				args.NetCtx.Request.UseHostHeader = true
 				args.NetCtx.Request.Header.Set("Host", string(args.NetCtx.Request.Host()))
-				args.NetCtx.Request.Header.Set("User-Agent", args.NetCtx.Client.Name)
+				args.NetCtx.Request.Header.Set("user-agent", args.NetCtx.Client.Name)
 			}
 
 			//Set URL params & cache buster headers
@@ -69,7 +69,7 @@ func HeaderBinarySearch(args *HeaderBinarySearchArgs) [][]string {
 			query_params := args.NetCtx.Request.URI().QueryArgs()
 			query_params.Add("cachebuster", cache_buster)
 
-			args.NetCtx.Request.Header.Set("Accept", "*/*, text/"+cache_buster)
+			args.NetCtx.Request.Header.Set("accept", "*/*, text/"+cache_buster)
 
 			//Add persistent headers if any
 			if args.UsePersistentHeaders {

@@ -55,6 +55,10 @@ func DecisionFuncSmallBody(_ [][]string, target *AttackTarget, response *fasthtt
 
 // keep the header if the location response header contains a reflected value
 func DecisionFuncLocationHeader(header_value_pairs [][]string, _ *AttackTarget, response *fasthttp.Response) Decision {
+	if len(header_value_pairs) == 0 {
+		return Decision{false, nil}
+	}
+
 	if response.StatusCode() > 308 || response.StatusCode() < 301 {
 		return Decision{false, nil}
 	}
@@ -70,6 +74,10 @@ func DecisionFuncLocationHeader(header_value_pairs [][]string, _ *AttackTarget, 
 
 // keep the header if it causes a host override
 func DecisionFuncHostOverride(header_value_pairs [][]string, target *AttackTarget, response *fasthttp.Response) Decision {
+	if len(header_value_pairs) == 0 {
+		return Decision{false, nil}
+	}
+
 	reasons := make([]int, 0, 2)
 	shouldKeep := false
 
@@ -91,6 +99,10 @@ func DecisionFuncHostOverride(header_value_pairs [][]string, target *AttackTarge
 
 // keep the header for one of a multitude of reasons. use for bruteforce
 func DecisionFuncBruteforce(header_value_pairs [][]string, target *AttackTarget, response *fasthttp.Response) Decision {
+	if len(header_value_pairs) == 0 {
+		return Decision{false, nil}
+	}
+
 	reasons := make([]int, 0, 2)
 	shouldKeep := false
 
@@ -99,16 +111,16 @@ func DecisionFuncBruteforce(header_value_pairs [][]string, target *AttackTarget,
 		shouldKeep = true
 	}
 
-	if strings.Contains(string(response.Body()), header_value_pairs[0][1]) {
+	if strings.Contains(string(response.Body()), "wcpcanary007") {
 		reasons = append(reasons, reason_ValueReflectedBody)
 		shouldKeep = true
 	}
 
-	response.Header.EnableNormalizing()
-	if len(response.Header.Peek("Set-Cookie")) > 0 {
-		reasons = append(reasons, reason_SetCookiePresent)
-		shouldKeep = true
-	}
+	// response.Header.EnableNormalizing()
+	// if len(response.Header.Peek("Set-Cookie")) > 0 {
+	// 	reasons = append(reasons, reason_SetCookiePresent)
+	// 	shouldKeep = true
+	// }
 
 	if shouldKeep {
 		return Decision{true, reasons}
