@@ -1,6 +1,7 @@
 package cachesnake
 
 import (
+	"strings"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -665,7 +666,7 @@ func RunIllegalHeader(target *AttackTarget, net_ctx *HttpContext, backoff time.D
 
 // Try many different headers
 // Main Impact: Header dependant
-func RunBruteforce(target *AttackTarget, net_ctx *HttpContext, backoff time.Duration) (bool, []string) {
+func RunBruteforce(target *AttackTarget, net_ctx *HttpContext, backoff time.Duration) []HeaderBruteforceResult {
 	//necessary boilerplate
 	target.AcquireTarget(backoff)
 	defer target.ReleaseTarget()
@@ -676,7 +677,7 @@ func RunBruteforce(target *AttackTarget, net_ctx *HttpContext, backoff time.Dura
 
 	//If not 200 there's nothing to do
 	if target.InitialResponse.StatusCode() != 200 {
-		return false, nil
+		return nil
 	}
 
 	//Prepare headers & header bin search args
@@ -688,8 +689,8 @@ func RunBruteforce(target *AttackTarget, net_ctx *HttpContext, backoff time.Dura
 	args := HeaderBinarySearchArgs{
 		Target:                target,
 		NetCtx:                net_ctx,
-		DisableNormalization:  false,
-		DisableSpecialHeaders: false,
+		DisableNormalization:  true,
+		DisableSpecialHeaders: true,
 		UsePersistentHeaders:  true,
 		UseCookies:            false,
 		HeaderValuePairs:      header_value_pairs,
@@ -702,25 +703,82 @@ func RunBruteforce(target *AttackTarget, net_ctx *HttpContext, backoff time.Dura
 	bin_search_result := HeaderBinarySearch(&args)
 
 	if len(bin_search_result) == 0 {
-		return false, nil
+		return nil
 	}
 
 	//See if any results are cached
 	args.HeaderValuePairs = bin_search_result
 	cache_test_result := IsHeaderEffectCached(&args)
 
-	result := make([]string, 0, len(bin_search_result))
+	if len(cache_test_result) == 0 {
+		return nil
+	}
 
+	result := make([]HeaderBruteforceResult, 0, len(bin_search_result))
+
+	//Check for cached results or uncached results that can be forced
 	for i, v := range cache_test_result {
+		//add cached values to the result
 		if v.ShouldKeep {
-			result = append(result, bin_search_result[i][0])
+			r := HeaderBruteforceResult{
+				OffendingHeader:  bin_search_result[i][0],
+				Reasons:          v.Reasons,
+				IsCached:         true,
+				IsCacheable:      false,
+				CacheablePostfix: "",
+			}
+			result = append(result, r)
+			continue
 		}
+
+		// not cached, check if it should be tested for forcing
+		shouldTest := false
+		for _, reason := range v.Reasons {
+			shouldTest = shouldTest || (reason == reason_ValueReflectedBody || reason == reason_SetCookiePresent)
+		}
+
+		if !shouldTest {
+			continue
+		}
+
+		// The value should be tested to see if we can force caching
+		CacheablePostfixes := []string{"/cache" + GenRandString(5) + ".css", ".css", "/.css", "%0Acache" + GenRandString(5) + ".css", "%3Bcache" + GenRandString(5) + ".css", "%23cache" + GenRandString(5) + ".css", "%3Fcache" + GenRandString(5) + ".css"}
+		newArgs := args
+		for _, postfix := range CacheablePostfixes {
+			//Remove request params, trailing slash & add postfix
+			newTarget := *args.Target
+			newTarget.TargetURL, _ = strings.CutSuffix(strings.Split(newTarget.TargetURL, "?")[0], "/")
+			newTarget.TargetURL += postfix
+			newArgs.Target = &newTarget
+			newArgs.HeaderValuePairs = [][]string{bin_search_result[i]}
+
+			decision := IsHeaderEffectCached(&newArgs)[0]
+			validReasons := false
+			for _, reason := range decision.Reasons {
+				validReasons = validReasons || (reason == reason_ValueReflectedBody || reason == reason_SetCookiePresent)
+			}
+
+			if decision.ShouldKeep && validReasons {
+				r := HeaderBruteforceResult{
+					OffendingHeader:  bin_search_result[i][0],
+					Reasons:          v.Reasons,
+					IsCached:         false,
+					IsCacheable:      true,
+					CacheablePostfix: postfix,
+				}
+				result = append(result, r)
+				break
+			}
+			//Respect the backoff time or face the wrath of the rate-limiter
+			time.Sleep(args.Backoff)
+		}
+
 	}
 
 	if len(result) == 0 {
-		return false, nil
+		return nil
 	} else {
-		return true, result
+		return result
 	}
 }
 

@@ -32,6 +32,14 @@ type AttackResult struct {
 	TimeStopped time.Time
 }
 
+type HeaderBruteforceResult struct {
+	OffendingHeader  string
+	Reasons          []int
+	IsCached         bool
+	IsCacheable      bool
+	CacheablePostfix string
+}
+
 type BBProgram struct {
 	ProgramName    string
 	ProgramURL     string
