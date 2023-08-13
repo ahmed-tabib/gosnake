@@ -1,6 +1,7 @@
 package cachesnake
 
 import (
+	"bytes"
 	"strings"
 	"time"
 
@@ -34,9 +35,31 @@ func RunAttacks(target *AttackTarget, timeout time.Duration, backoff time.Durati
 	}
 
 	//Run the attacks & aggregate results
-	//if target.cookie_search_only {
+	cookie_search_result := RunCookieSearch(target, &net_ctx, backoff)
 
-	//}
+	for _, r := range cookie_search_result {
+		v := Vuln{
+			Name:             "Reflected Cookie",
+			Details:          "Cookie value reflected in response. ",
+			OffendingHeaders: []string{r.ReflectedCookie},
+			Impact:           []string{"XSS", "ATO"},
+			TimeFound:        time.Now(),
+		}
+
+		if r.IsCached {
+			v.Details += "Cached. "
+		}
+
+		if r.IsCacheable {
+			v.Details += "Forcibly Cached. Postfix: \"" + r.CacheablePostfix + "\". "
+		}
+
+		result.VulnList = append(result.VulnList, v)
+	}
+
+	if target.CookieSearchOnly {
+		return result
+	}
 
 	// Try Host override
 	attack_works, attack_headers := RunHostOverride(target, &net_ctx, backoff)
@@ -1015,6 +1038,179 @@ func RunBruteforce(target *AttackTarget, net_ctx *HttpContext, backoff time.Dura
 	}
 }
 
-func RunCookieSearch() {
+func RunCookieSearch(target *AttackTarget, net_ctx *HttpContext, backoff time.Duration) []CookieSearchResult {
+	//Reset request & response object when we're done
+	defer net_ctx.Request.Reset()
+	defer net_ctx.Response.Reset()
 
+	//Reset request & response objects
+	net_ctx.Request.Reset()
+	net_ctx.Response.Reset()
+
+	//Setup the request URL & method
+	net_ctx.Request.SetRequestURI(target.TargetURL)
+	net_ctx.Request.Header.SetMethod("GET")
+
+	//Set URL params & cache buster headers
+	cache_buster := GenRandString(10)
+	query_params := net_ctx.Request.URI().QueryArgs()
+	query_params.Add("cachebuster", cache_buster)
+
+	net_ctx.Request.Header.Set("Accept", "*/*, text/"+cache_buster)
+
+	//Add persistent headers if any
+	if len(net_ctx.PersistentHeaders) > 0 {
+		for _, h_v := range net_ctx.PersistentHeaders {
+			net_ctx.Request.Header.Set(h_v[0], h_v[1])
+		}
+	}
+
+	//Add cookies
+	for _, c := range target.ParentSubdomain.CookieList {
+		net_ctx.Request.Header.SetCookieBytesKV(c.Key(), c.Value())
+	}
+
+	//Send the request with the cookies
+	err := net_ctx.Client.Do(net_ctx.Request, net_ctx.Response)
+	if err != nil {
+		return nil
+	}
+
+	reflected_cookies := make([]*fasthttp.Cookie, 0, 5)
+
+	// See which cookie values are reflected
+	for _, c := range target.ParentSubdomain.CookieList {
+		if bytes.Contains(net_ctx.Response.Body(), c.Value()) {
+			reflected_cookies = append(reflected_cookies, c)
+		} else {
+			continue
+		}
+	}
+
+	// If no cookies are reflected we leave
+	if len(reflected_cookies) == 0 {
+		return nil
+	}
+
+	//Now we have a reflected cookie value, we can continue testing
+	//Remove cookies
+	net_ctx.Request.Header.DelAllCookies()
+
+	//Send the request again, without the cookies
+	err = net_ctx.Client.Do(net_ctx.Request, net_ctx.Response)
+	if err != nil {
+		return nil
+	}
+
+	// Check again for cached cookies
+	cached_cookies := make([]string, 0, 5)
+
+	// See which cookie values are cached
+	for _, c := range reflected_cookies {
+		if bytes.Contains(net_ctx.Response.Body(), c.Value()) {
+			cached_cookies = append(cached_cookies, c.String())
+		} else {
+			continue
+		}
+	}
+
+	// If the cookies are cached cool, we got it
+	if len(cached_cookies) > 0 {
+		result := make([]CookieSearchResult, len(cached_cookies))
+		for i, c := range cached_cookies {
+			result[i] = CookieSearchResult{
+				ReflectedCookie:  c,
+				IsCached:         true,
+				IsCacheable:      false,
+				CacheablePostfix: "",
+			}
+		}
+		return result
+	}
+
+	// If the file is a js file, don't bother forcing caching
+	url_no_params, _ := strings.CutSuffix(strings.Split(target.TargetURL, "?")[0], "/")
+	if strings.HasSuffix(url_no_params, ".js") {
+		return nil
+	}
+
+	// Rate-limit pause
+	time.Sleep(backoff)
+
+	// If not cached, we'll try adding various extensions
+	CacheablePostfixes := []string{"/cache" + GenRandString(5) + ".css", ".css", "/.css", "%0Acache" + GenRandString(5) + ".css", "%3Bcache" + GenRandString(5) + ".css", "%23cache" + GenRandString(5) + ".css", "%3Fcache" + GenRandString(5) + ".css"}
+	for _, postfix := range CacheablePostfixes {
+		newTarget := target
+		newTarget.TargetURL = url_no_params
+		newTarget.TargetURL += postfix
+
+		//Reset request & response objects
+		net_ctx.Request.Reset()
+		net_ctx.Response.Reset()
+
+		//Setup the request URL & method
+		net_ctx.Request.SetRequestURI(newTarget.TargetURL)
+		net_ctx.Request.Header.SetMethod("GET")
+
+		//Set URL params & cache buster headers
+		cache_buster := GenRandString(10)
+		query_params := net_ctx.Request.URI().QueryArgs()
+		query_params.Add("cachebuster", cache_buster)
+
+		net_ctx.Request.Header.Set("Accept", "*/*, text/"+cache_buster)
+
+		//Add persistent headers if any
+		if len(net_ctx.PersistentHeaders) > 0 {
+			for _, h_v := range net_ctx.PersistentHeaders {
+				net_ctx.Request.Header.Set(h_v[0], h_v[1])
+			}
+		}
+
+		//Add cookies
+		for _, c := range target.ParentSubdomain.CookieList {
+			net_ctx.Request.Header.SetCookieBytesKV(c.Key(), c.Value())
+		}
+
+		//Send the request with the cookies
+		err := net_ctx.Client.Do(net_ctx.Request, net_ctx.Response)
+		if err != nil {
+			return nil
+		}
+
+		//Remove cookies
+		net_ctx.Request.Header.DelAllCookies()
+
+		//Send the request again, without the cookies
+		err = net_ctx.Client.Do(net_ctx.Request, net_ctx.Response)
+		if err != nil {
+			return nil
+		}
+
+		// See which cookie values are cached
+		for _, c := range reflected_cookies {
+			if bytes.Contains(net_ctx.Response.Body(), c.Value()) {
+				cached_cookies = append(cached_cookies, c.String())
+			} else {
+				continue
+			}
+		}
+
+		// If the cookies are cached cool, we got it
+		if len(cached_cookies) > 0 {
+			result := make([]CookieSearchResult, len(cached_cookies))
+			for i, c := range cached_cookies {
+				result[i] = CookieSearchResult{
+					ReflectedCookie:  c,
+					IsCached:         false,
+					IsCacheable:      true,
+					CacheablePostfix: postfix,
+				}
+			}
+			return result
+		}
+
+		time.Sleep(backoff)
+	}
+
+	return nil
 }

@@ -40,6 +40,13 @@ type HeaderBruteforceResult struct {
 	CacheablePostfix string
 }
 
+type CookieSearchResult struct {
+	ReflectedCookie  string
+	IsCached         bool
+	IsCacheable      bool
+	CacheablePostfix string
+}
+
 type BBProgram struct {
 	ProgramName    string
 	ProgramURL     string
@@ -54,6 +61,7 @@ type Subdomain struct {
 	ParentProgram *BBProgram
 	LastRequested time.Time
 	SubLock       sync.Mutex
+	CookieList    []*fasthttp.Cookie
 }
 
 type AttackTarget struct {
