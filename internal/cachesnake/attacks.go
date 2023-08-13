@@ -9,7 +9,10 @@ import (
 
 func RunAttacks(target *AttackTarget, timeout time.Duration, backoff time.Duration) AttackResult {
 	//Setup HTTP context
-	net_ctx := HttpContext{}
+	net_ctx := HttpContext{
+		PersistentHeaders: make([][]string, 0),
+		Cookies:           make([][]string, 0),
+	}
 
 	net_ctx.Client = &fasthttp.Client{
 		DisableHeaderNamesNormalizing: true,
@@ -31,9 +34,239 @@ func RunAttacks(target *AttackTarget, timeout time.Duration, backoff time.Durati
 	}
 
 	//Run the attacks & aggregate results
-	//if t.cookie_search_only {
+	//if target.cookie_search_only {
 
 	//}
+
+	// Try Host override
+	attack_works, attack_headers := RunHostOverride(target, &net_ctx, backoff)
+	if attack_works {
+		v := Vuln{
+			Name:             "Host Override",
+			Details:          "",
+			OffendingHeaders: make([]string, len(attack_headers)),
+			Impact:           []string{"DoS", "XSS"},
+			TimeFound:        time.Now(),
+		}
+		copy(v.OffendingHeaders, attack_headers)
+
+		result.VulnList = append(result.VulnList, v)
+	}
+
+	// Try path override
+	attack_works, attack_headers = RunPathOverride(target, &net_ctx, backoff)
+	if attack_works {
+		v := Vuln{
+			Name:             "Path Override",
+			Details:          "",
+			OffendingHeaders: make([]string, len(attack_headers)),
+			Impact:           []string{"DoS"},
+			TimeFound:        time.Now(),
+		}
+		copy(v.OffendingHeaders, attack_headers)
+
+		result.VulnList = append(result.VulnList, v)
+	}
+
+	// Try Illegal header
+	attack_works, _ = RunIllegalHeader(target, &net_ctx, backoff)
+	if attack_works {
+		v := Vuln{
+			Name:             "Illegal Header",
+			Details:          "",
+			OffendingHeaders: []string{"]"},
+			Impact:           []string{"DoS"},
+			TimeFound:        time.Now(),
+		}
+
+		result.VulnList = append(result.VulnList, v)
+	}
+
+	// Try Many Headers
+	attack_works, _ = RunLargeHeaderCount(target, &net_ctx, backoff)
+	if attack_works {
+		v := Vuln{
+			Name:             "Large Header Count",
+			Details:          "",
+			OffendingHeaders: []string{"X-Random-Custom-Header"},
+			Impact:           []string{"DoS"},
+			TimeFound:        time.Now(),
+		}
+
+		result.VulnList = append(result.VulnList, v)
+	}
+
+	// Try Method override
+	attack_works, attack_headers = RunMethodOverride(target, &net_ctx, backoff)
+	if attack_works {
+		v := Vuln{
+			Name:             "Method Override",
+			Details:          "",
+			OffendingHeaders: make([]string, len(attack_headers)),
+			Impact:           []string{"DoS"},
+			TimeFound:        time.Now(),
+		}
+		copy(v.OffendingHeaders, attack_headers)
+
+		result.VulnList = append(result.VulnList, v)
+	}
+
+	// Try Evil Agent
+	attack_works, attack_headers = RunEvilAgent(target, &net_ctx, backoff)
+	if attack_works {
+		v := Vuln{
+			Name:             "Evil User-Agent",
+			Details:          "",
+			OffendingHeaders: make([]string, len(attack_headers)),
+			Impact:           []string{"DoS"},
+			TimeFound:        time.Now(),
+		}
+		copy(v.OffendingHeaders, attack_headers)
+
+		result.VulnList = append(result.VulnList, v)
+	}
+
+	// Try Protocol override
+	attack_works, attack_headers = RunProtoOverride(target, &net_ctx, backoff)
+	if attack_works {
+		v := Vuln{
+			Name:             "Protocol Override",
+			Details:          "",
+			OffendingHeaders: make([]string, len(attack_headers)),
+			Impact:           []string{"DoS"},
+			TimeFound:        time.Now(),
+		}
+		copy(v.OffendingHeaders, attack_headers)
+
+		result.VulnList = append(result.VulnList, v)
+
+		// If we can perform protocol override try to see if we can execute a permanent redirect
+		if len(attack_headers) > 0 {
+			persisten_headers_backup := make([][]string, len(net_ctx.PersistentHeaders))
+			copy(persisten_headers_backup, net_ctx.PersistentHeaders)
+
+			net_ctx.PersistentHeaders = append(net_ctx.PersistentHeaders, []string{attack_headers[0], "http"})
+
+			permaredir_works, permaredir_headers := RunPermaRedirect(target, &net_ctx, backoff)
+			if permaredir_works {
+				v := Vuln{
+					Name:             "Permanent Redirect",
+					Details:          "",
+					OffendingHeaders: make([]string, len(permaredir_headers)),
+					Impact:           []string{"XSS", "DoS"},
+					TimeFound:        time.Now(),
+				}
+				copy(v.OffendingHeaders, permaredir_headers)
+
+				result.VulnList = append(result.VulnList, v)
+			}
+		}
+	}
+
+	// Try Port override
+	attack_works, attack_headers = RunPortOverride(target, &net_ctx, backoff)
+	if attack_works {
+		v := Vuln{
+			Name:             "Protocol Override",
+			Details:          "",
+			OffendingHeaders: make([]string, len(attack_headers)),
+			Impact:           []string{"DoS"},
+			TimeFound:        time.Now(),
+		}
+		copy(v.OffendingHeaders, attack_headers)
+
+		result.VulnList = append(result.VulnList, v)
+
+		// If we can perform protocol override try to see if we can execute a permanent redirect
+		if len(attack_headers) > 0 {
+			persisten_headers_backup := make([][]string, len(net_ctx.PersistentHeaders))
+			copy(persisten_headers_backup, net_ctx.PersistentHeaders)
+
+			net_ctx.PersistentHeaders = append(net_ctx.PersistentHeaders, []string{attack_headers[0], "80"})
+
+			permaredir_works, permaredir_headers := RunPermaRedirect(target, &net_ctx, backoff)
+			if permaredir_works {
+				v := Vuln{
+					Name:             "Permanent Redirect",
+					Details:          "",
+					OffendingHeaders: make([]string, len(permaredir_headers)),
+					Impact:           []string{"XSS", "DoS"},
+					TimeFound:        time.Now(),
+				}
+				copy(v.OffendingHeaders, permaredir_headers)
+
+				result.VulnList = append(result.VulnList, v)
+			}
+		}
+	}
+
+	// Try permanent redirect & port dos
+	if target.InitialResponse.StatusCode() >= 301 && target.InitialResponse.StatusCode() <= 308 {
+
+		attack_works, attack_headers = RunPermaRedirect(target, &net_ctx, backoff)
+		if attack_works {
+			v := Vuln{
+				Name:             "Permanent Redirect",
+				Details:          "",
+				OffendingHeaders: make([]string, len(attack_headers)),
+				Impact:           []string{"DoS", "XSS"},
+				TimeFound:        time.Now(),
+			}
+			copy(v.OffendingHeaders, attack_headers)
+
+			result.VulnList = append(result.VulnList, v)
+		}
+
+		attack_works, attack_headers = RunPortDos(target, &net_ctx, backoff)
+		if attack_works {
+			v := Vuln{
+				Name:             "Port DoS",
+				Details:          "",
+				OffendingHeaders: make([]string, len(attack_headers)),
+				Impact:           []string{"DoS"},
+				TimeFound:        time.Now(),
+			}
+			copy(v.OffendingHeaders, attack_headers)
+
+			result.VulnList = append(result.VulnList, v)
+		}
+
+	}
+
+	// Finally, try header bruteforce
+	bruteforce_result := RunBruteforce(target, &net_ctx, backoff)
+
+	if len(bruteforce_result) > 0 {
+		for _, r := range bruteforce_result {
+			v := Vuln{
+				Name:             "Header Bruteforce",
+				Details:          "",
+				OffendingHeaders: []string{r.OffendingHeader},
+				Impact:           make([]string, 0, 2),
+				TimeFound:        time.Now(),
+			}
+
+			if r.IsCached {
+				v.Details += "Cached. "
+			}
+			if r.IsCacheable {
+				v.Details += "Forcibly cacheable. Postfix: \"" + r.CacheablePostfix + "\". "
+			}
+
+			for _, reason := range r.Reasons {
+				switch reason {
+				case reason_StatusCodeModified:
+					v.Details += "Status code modified. "
+					v.Impact = append(v.Impact, "DoS")
+				case reason_ValueReflectedBody:
+					v.Details += "Value reflected in body. "
+					v.Impact = append(v.Impact, "XSS")
+				}
+			}
+
+			result.VulnList = append(result.VulnList, v)
+		}
+	}
 
 	//Note the time & return
 	result.TimeStopped = time.Now()
