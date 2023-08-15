@@ -61,7 +61,7 @@ func RunAttacks(target *AttackTarget, timeout time.Duration, backoff time.Durati
 		return result
 	}
 
-	// Try Host override
+	//Try Host override
 	attack_works, attack_headers := RunHostOverride(target, &net_ctx, backoff)
 	if attack_works {
 		v := Vuln{
@@ -165,9 +165,6 @@ func RunAttacks(target *AttackTarget, timeout time.Duration, backoff time.Durati
 
 		// If we can perform protocol override try to see if we can execute a permanent redirect
 		if len(attack_headers) > 0 {
-			persisten_headers_backup := make([][]string, len(net_ctx.PersistentHeaders))
-			copy(persisten_headers_backup, net_ctx.PersistentHeaders)
-
 			net_ctx.PersistentHeaders = append(net_ctx.PersistentHeaders, []string{attack_headers[0], "http"})
 
 			permaredir_works, permaredir_headers := RunPermaRedirect(target, &net_ctx, backoff)
@@ -183,6 +180,8 @@ func RunAttacks(target *AttackTarget, timeout time.Duration, backoff time.Durati
 
 				result.VulnList = append(result.VulnList, v)
 			}
+
+			net_ctx.PersistentHeaders = net_ctx.PersistentHeaders[:len(net_ctx.PersistentHeaders)-1]
 		}
 	}
 
@@ -202,9 +201,6 @@ func RunAttacks(target *AttackTarget, timeout time.Duration, backoff time.Durati
 
 		// If we can perform protocol override try to see if we can execute a permanent redirect
 		if len(attack_headers) > 0 {
-			persisten_headers_backup := make([][]string, len(net_ctx.PersistentHeaders))
-			copy(persisten_headers_backup, net_ctx.PersistentHeaders)
-
 			net_ctx.PersistentHeaders = append(net_ctx.PersistentHeaders, []string{attack_headers[0], "80"})
 
 			permaredir_works, permaredir_headers := RunPermaRedirect(target, &net_ctx, backoff)
@@ -220,6 +216,8 @@ func RunAttacks(target *AttackTarget, timeout time.Duration, backoff time.Durati
 
 				result.VulnList = append(result.VulnList, v)
 			}
+
+			net_ctx.PersistentHeaders = net_ctx.PersistentHeaders[:len(net_ctx.PersistentHeaders)-1]
 		}
 	}
 
