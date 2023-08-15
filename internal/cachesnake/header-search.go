@@ -55,10 +55,12 @@ func HeaderBinarySearch(args *HeaderBinarySearchArgs) [][]string {
 			//Setup normalization & necessary headers
 			if args.DisableNormalization {
 				args.NetCtx.Request.Header.DisableNormalizing()
+				defer args.NetCtx.Request.Header.EnableNormalizing()
 			}
 
 			if args.DisableSpecialHeaders {
 				args.NetCtx.Request.Header.DisableSpecialHeader()
+				defer args.NetCtx.Request.Header.EnableSpecialHeader()
 				args.NetCtx.Request.UseHostHeader = true
 				args.NetCtx.Request.Header.Set("Host", string(args.NetCtx.Request.Host()))
 				args.NetCtx.Request.Header.Set("user-agent", args.NetCtx.Client.Name)
@@ -171,10 +173,12 @@ func IsHeaderEffectCached(args *HeaderBinarySearchArgs) []Decision {
 		//Setup normalization & necessary headers
 		if args.DisableNormalization {
 			args.NetCtx.Request.Header.DisableNormalizing()
+			defer args.NetCtx.Request.Header.EnableNormalizing()
 		}
 
 		if args.DisableSpecialHeaders {
 			args.NetCtx.Request.Header.DisableSpecialHeader()
+			defer args.NetCtx.Request.Header.EnableSpecialHeader()
 			args.NetCtx.Request.UseHostHeader = true
 			args.NetCtx.Request.Header.Set("Host", string(args.NetCtx.Request.Host()))
 			args.NetCtx.Request.Header.Set("user-agent", args.NetCtx.Client.Name)

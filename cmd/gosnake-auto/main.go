@@ -8,53 +8,81 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-func main() {
-	sub := cachesnake.Subdomain{
-		Value:         "www.google.com",
-		LastRequested: time.Now(),
+func printResult(r cachesnake.AttackResult) {
+	fmt.Println("---------------VULN REPORT-----------------")
+
+	fmt.Println("Time started:", r.TimeStarted)
+	fmt.Println("Time stopped:", r.TimeStopped)
+
+	if len(r.VulnList) == 0 {
+		fmt.Println("No vulnerabilities found.")
 	}
 
-	client := &fasthttp.Client{}
-	req := fasthttp.AcquireRequest()
-	init_resp := fasthttp.AcquireResponse()
-	resp := fasthttp.AcquireResponse()
-	defer fasthttp.ReleaseResponse(init_resp)
-	defer fasthttp.ReleaseRequest(req)
-	defer fasthttp.ReleaseResponse(resp)
+	for i, v := range r.VulnList {
+		fmt.Println("--- Vuln", i+1, "---")
+		fmt.Println("Vuln found through: ", v.Name)
+		fmt.Println("Details: ", v.Details)
+		fmt.Println("Assessed Impact: ", v.Impact)
+		fmt.Println("Problem In: \"", v.OffendingHeaders, "\"")
+		fmt.Println("Found on: ", v.TimeFound)
+	}
 
-	req.Header.SetMethod("GET")
-	req.Header.SetRequestURI("https://www.google.com")
+}
 
-	err := client.Do(req, init_resp)
+func main() {
+
+	bbprogram := cachesnake.BBProgram{}
+	subdomain := cachesnake.Subdomain{
+		Value:         "0abf0046039442db8188b64200440024.web-security-academy.net",
+		ParentProgram: &bbprogram,
+		CookieList:    make([]*fasthttp.Cookie, 0),
+	}
+	target := cachesnake.AttackTarget{
+		TargetURL:       "https://0abf0046039442db8188b64200440024.web-security-academy.net/",
+		InitialResponse: fasthttp.AcquireResponse(),
+		ParentSubdomain: &subdomain,
+	}
+
+	//Setup HTTP context
+	net_ctx := cachesnake.HttpContext{PersistentHeaders: make([][]string, 0)}
+
+	net_ctx.Client = &fasthttp.Client{
+		DisableHeaderNamesNormalizing: false,
+		DisablePathNormalizing:        true,
+		ReadTimeout:                   15 * time.Second,
+		Name:                          "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0",
+	}
+
+	net_ctx.Request = fasthttp.AcquireRequest()
+	net_ctx.Response = fasthttp.AcquireResponse()
+	defer fasthttp.ReleaseRequest(net_ctx.Request)
+	defer fasthttp.ReleaseResponse(net_ctx.Response)
+
+	net_ctx.Request.SetRequestURI(target.TargetURL)
+	net_ctx.Request.Header.SetMethod("GET")
+
+	err := net_ctx.Client.Do(net_ctx.Request, net_ctx.Response)
 	if err != nil {
+		fmt.Println("Could not send first request: ", err)
 		return
 	}
 
-	t := cachesnake.AttackTarget{
-		TargetURL:        "https://www.google.com/",
-		InitialResponse:  init_resp,
-		ParentSubdomain:  &sub,
-		CookieSearchOnly: false,
-	}
+	fmt.Println("First request status code: ", net_ctx.Response.StatusCode())
 
-	net_ctx := cachesnake.HttpContext{Client: client, Request: req, Response: resp}
-	h_v_pairs := [][]string{{"x-normal1\\", "val"}, {"x-normal2\\", "val"}, {"x-normal3", "val"}, {"x-normal4", "val"}, {"]nope]", "val"}, {"x-normal5", "val"}, {"x-normal6", "val"}, {"x-normal7", "val"}, {"x-normal8", "val"}, {"x-normal9", "val"}, {"x-normal10", "val"}}
-	decision_func := func(h_v [][]string, target *cachesnake.AttackTarget, response *fasthttp.Response) bool {
-		fmt.Println(response.StatusCode(), target.InitialResponse.StatusCode(), response.StatusCode() != target.InitialResponse.StatusCode())
-		return response.StatusCode() != target.InitialResponse.StatusCode()
-	}
+	net_ctx.Response.Header.VisitAllCookie(func(key []byte, value []byte) {
+		cookie := fasthttp.AcquireCookie()
+		cookie.ParseBytes(value)
+		subdomain.CookieList = append(subdomain.CookieList, cookie)
+		fmt.Println("Found cookie: ", cookie.String())
+	})
 
-	a := cachesnake.HeaderBinarySearchArgs{
-		Target:               &t,
-		NetCtx:               &net_ctx,
-		UsePersistentHeaders: false,
-		UseCookies:           false,
-		HeaderValuePairs:     h_v_pairs,
-		ChunkSize:            3,
-		Backoff:              time.Second,
-		DecisionFunc:         decision_func,
-	}
-	s := cachesnake.HeaderBinarySearch(&a)
+	net_ctx.Response.CopyTo(target.InitialResponse)
 
-	fmt.Println(s)
+	net_ctx.Response.Reset()
+	net_ctx.Request.Reset()
+
+	result := cachesnake.RunAttacks(&target, 15*time.Second, 1*time.Second)
+
+	printResult(result)
+
 }
