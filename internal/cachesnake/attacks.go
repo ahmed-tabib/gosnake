@@ -1040,6 +1040,7 @@ func RunCookieSearch(target *AttackTarget, net_ctx *HttpContext, backoff time.Du
 	//Reset request & response object when we're done
 	defer net_ctx.Request.Reset()
 	defer net_ctx.Response.Reset()
+	defer net_ctx.Request.Header.DelAllCookies()
 
 	//Reset request & response objects
 	net_ctx.Request.Reset()
