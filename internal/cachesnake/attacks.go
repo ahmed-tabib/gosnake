@@ -34,6 +34,20 @@ func RunAttacks(target *AttackTarget, timeout time.Duration, backoff time.Durati
 		TimeStarted: time.Now(),
 	}
 
+	// If we don't have an initial response fetch it
+	if target.InitialResponse == nil {
+		target.InitialResponse = fasthttp.AcquireResponse()
+		defer fasthttp.ReleaseResponse(target.InitialResponse)
+
+		net_ctx.Request.SetRequestURI(target.TargetURL)
+		net_ctx.Request.Header.SetMethod("GET")
+
+		err := net_ctx.Client.Do(net_ctx.Request, target.InitialResponse)
+		if err != nil {
+			return result
+		}
+	}
+
 	//Run the attacks & aggregate results
 	cookie_search_result := RunCookieSearch(target, &net_ctx, backoff)
 
