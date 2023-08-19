@@ -71,7 +71,7 @@ func (program *BBProgram) IsInScope(subdomain string) bool {
 		return false
 	}
 
-	for _, out_of_scope_sub := range program.InScope {
+	for _, out_of_scope_sub := range program.OutOfScope {
 		if strings.HasSuffix(subdomain, out_of_scope_sub) {
 			is_in_scope = false
 			break
