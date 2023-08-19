@@ -173,7 +173,7 @@ func urlVisitAndExtract(url string, regex_list []*regexp.Regexp, timeout time.Du
 
 		return status_code, cookies, match_list
 	} else if status_code >= 301 && status_code <= 308 {
-		match_list := [][]string{[]string{string(response.Header.Peek("location"))}}
+		match_list := [][]string{{string(response.Header.Peek("location"))}}
 
 		return status_code, cookies, match_list
 	} else {
