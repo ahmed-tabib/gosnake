@@ -38,18 +38,15 @@ func GenerateTargets(subdomain_list []*Subdomain, targets_per_subdomain int, tim
 				continue
 			}
 
+			// lock the subdomain
+			subdomain.SubLock.Lock()
+
 			// visit url
 			time.Sleep(backoff)
 			status_code, cookies, url_matches := urlVisitAndExtract(url, regex_list, timeout)
 			visited_urls.AddString(url)
 
-			// verify useful status code
-			if status_code < 200 || status_code > 308 {
-				continue
-			}
-
 			// add cookies to subdomain object
-			//subdomain.SubLock.Lock()
 			for _, c := range cookies {
 				already_in_list := false
 				for _, s_c := range subdomain.CookieList {
@@ -64,7 +61,14 @@ func GenerateTargets(subdomain_list []*Subdomain, targets_per_subdomain int, tim
 					subdomain.CookieList = append(subdomain.CookieList, c)
 				}
 			}
-			//subdomain.SubLock.Unlock()
+
+			// release subdomain
+			subdomain.SubLock.Unlock()
+
+			// verify useful status code
+			if status_code < 200 || status_code > 308 {
+				continue
+			}
 
 			// submit url as a target
 			out <- AttackTarget{
