@@ -97,6 +97,17 @@ func DecisionFuncHostOverride(header_value_pairs [][]string, target *AttackTarge
 	}
 }
 
+func DecisionFuncPortDos(header_value_pairs [][]string, target *AttackTarget, response *fasthttp.Response) Decision {
+	d1 := DecisionFuncLocationHeader(header_value_pairs, target, response)
+	d2 := DecisionFuncHostOverride(header_value_pairs, target, response)
+
+	if d1.ShouldKeep || d2.ShouldKeep {
+		return Decision{true, append(d1.Reasons, d2.Reasons...)}
+	} else {
+		return Decision{false, nil}
+	}
+}
+
 // keep the header for one of a multitude of reasons. use for bruteforce
 func DecisionFuncBruteforce(header_value_pairs [][]string, target *AttackTarget, response *fasthttp.Response) Decision {
 	if len(header_value_pairs) == 0 {

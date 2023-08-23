@@ -771,6 +771,7 @@ func RunHostOverride(target *AttackTarget, net_ctx *HttpContext, backoff time.Du
 	}
 	// Special case I found while researching
 	header_value_pairs = append(header_value_pairs, []string{"Forwarded", "host=" + random_host})
+	header_value_pairs = append(header_value_pairs, []string{"Host", random_host})
 
 	args := HeaderBinarySearchArgs{
 		Target:                target,
@@ -839,6 +840,7 @@ func RunPortDos(target *AttackTarget, net_ctx *HttpContext, backoff time.Duratio
 		header_value_pairs[i] = []string{HostOverrideHeaders[i], target_host}
 	}
 	header_value_pairs = append(header_value_pairs, []string{"Forwarded", "host=" + target_host})
+	header_value_pairs = append(header_value_pairs, []string{"Host", target_host})
 
 	args := HeaderBinarySearchArgs{
 		Target:                target,
@@ -850,7 +852,7 @@ func RunPortDos(target *AttackTarget, net_ctx *HttpContext, backoff time.Duratio
 		HeaderValuePairs:      header_value_pairs,
 		ChunkSize:             40,
 		Backoff:               backoff,
-		DecisionFunc:          DecisionFuncLocationHeader,
+		DecisionFunc:          DecisionFuncPortDos,
 	}
 
 	//Run Binary search on Headers
