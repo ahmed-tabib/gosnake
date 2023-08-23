@@ -220,6 +220,10 @@ func IsHeaderEffectCached(args *HeaderBinarySearchArgs) []Decision {
 
 		//Remove tested header
 		args.NetCtx.Request.Header.Del(h_v_pair[0])
+		if args.DisableSpecialHeaders {
+			args.NetCtx.Request.Header.Set("Host", string(args.NetCtx.Request.Host()))
+			args.NetCtx.Request.Header.Set("user-agent", args.NetCtx.Client.Name)
+		}
 
 		//Resend the request without the header
 		err = args.NetCtx.Client.Do(args.NetCtx.Request, args.NetCtx.Response)
