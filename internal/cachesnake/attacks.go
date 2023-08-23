@@ -390,6 +390,7 @@ func RunProtoOverride(target *AttackTarget, net_ctx *HttpContext, backoff time.D
 	for i := range header_value_pairs {
 		header_value_pairs[i] = []string{ProtocolOverrideHeaders[i], "http"}
 	}
+	header_value_pairs = append(header_value_pairs, []string{"Forwarded", "proto=http"})
 
 	args := HeaderBinarySearchArgs{
 		Target:                target,
