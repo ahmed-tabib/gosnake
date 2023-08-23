@@ -637,6 +637,7 @@ func RunPermaRedirect(target *AttackTarget, net_ctx *HttpContext, backoff time.D
 	for i := range header_value_pairs {
 		header_value_pairs[i] = []string{HostOverrideHeaders[i], "www.elbo7.com"}
 	}
+	header_value_pairs = append(header_value_pairs, []string{"Forwarded", "host=www.elbo7.com"})
 
 	args := HeaderBinarySearchArgs{
 		Target:                target,
@@ -767,6 +768,8 @@ func RunHostOverride(target *AttackTarget, net_ctx *HttpContext, backoff time.Du
 	for i := range header_value_pairs {
 		header_value_pairs[i] = []string{HostOverrideHeaders[i], random_host}
 	}
+	// Special case I found while researching
+	header_value_pairs = append(header_value_pairs, []string{"Forwarded", "host=" + random_host})
 
 	args := HeaderBinarySearchArgs{
 		Target:                target,
@@ -834,6 +837,7 @@ func RunPortDos(target *AttackTarget, net_ctx *HttpContext, backoff time.Duratio
 	for i := range header_value_pairs {
 		header_value_pairs[i] = []string{HostOverrideHeaders[i], target_host}
 	}
+	header_value_pairs = append(header_value_pairs, []string{"Forwarded", "host=" + target_host})
 
 	args := HeaderBinarySearchArgs{
 		Target:                target,
