@@ -11,11 +11,11 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-func GenerateTargets(subdomain_list []*Subdomain, targets_per_subdomain int, timeout time.Duration, backoff time.Duration, out chan<- AttackTarget) {
+func GenerateTargets(subdomain_list []*Subdomain, targets_per_subdomain int, timeout time.Duration, backoff time.Duration, useragent string, regex_list []*regexp.Regexp, out chan<- AttackTarget) {
 	// URL finding regexes
-	regex_list := make([]*regexp.Regexp, 2)
-	regex_list[0] = regexp.MustCompile("<script[^>]*src=[\"']?([^\\?#'\" ]*)[\\?#\"']?")
-	regex_list[1] = regexp.MustCompile("<a[^>]*href=[\"']?([^\\?#'\" ]*)[\\?#\"']?")
+	//regex_list := make([]*regexp.Regexp, 2)
+	//regex_list[0] = regexp.MustCompile("<script[^>]*src=[\"']?([^\\?#'\" ]*)[\\?#\"']?")
+	//regex_list[1] = regexp.MustCompile("<a[^>]*href=[\"']?([^\\?#'\" ]*)[\\?#\"']?")
 
 	// bloom filter for visited urls
 	visited_urls := bloom.NewWithEstimates(uint(targets_per_subdomain*len(subdomain_list)), 0.02)
@@ -43,7 +43,7 @@ func GenerateTargets(subdomain_list []*Subdomain, targets_per_subdomain int, tim
 
 			// visit url
 			time.Sleep(backoff)
-			status_code, cookies, url_matches := urlVisitAndExtract(url, regex_list, timeout)
+			status_code, cookies, url_matches := urlVisitAndExtract(url, regex_list, timeout, useragent)
 			visited_urls.AddString(url)
 
 			// add cookies to subdomain object
@@ -122,7 +122,7 @@ func GenerateTargets(subdomain_list []*Subdomain, targets_per_subdomain int, tim
 }
 
 // visit url, extract cookies & urls
-func urlVisitAndExtract(url string, regex_list []*regexp.Regexp, timeout time.Duration) (int, []*fasthttp.Cookie, [][]string) {
+func urlVisitAndExtract(url string, regex_list []*regexp.Regexp, timeout time.Duration, useragent string) (int, []*fasthttp.Cookie, [][]string) {
 	// Get request & response objects
 	request := fasthttp.AcquireRequest()
 	response := fasthttp.AcquireResponse()

@@ -8,7 +8,7 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-func RunAttacks(target *AttackTarget, timeout time.Duration, backoff time.Duration) AttackResult {
+func RunAttacks(target *AttackTarget, timeout time.Duration, backoff time.Duration, useragent string) AttackResult {
 	//Setup HTTP context
 	net_ctx := HttpContext{
 		PersistentHeaders: make([][]string, 0),
@@ -19,7 +19,7 @@ func RunAttacks(target *AttackTarget, timeout time.Duration, backoff time.Durati
 		DisableHeaderNamesNormalizing: true,
 		DisablePathNormalizing:        true,
 		ReadTimeout:                   timeout,
-		Name:                          "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0",
+		Name:                          useragent,
 	}
 
 	net_ctx.Request = fasthttp.AcquireRequest()
