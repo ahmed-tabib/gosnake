@@ -20,9 +20,8 @@ type Config struct {
 
 	UserAgent string
 
-	SubdomainFetchThreads int
-	TargetFetchThreads    int
-	AttackThreads         int
+	TargetFetchThreads int
+	AttackThreads      int
 
 	TargetsPerSubdomain int
 	TargetFetchRegexes  []*regexp.Regexp

@@ -67,16 +67,16 @@ func (program *BBProgram) IsInScope(subdomain string) bool {
 		}
 	}
 
-	if !is_in_scope {
-		return false
-	}
+	// if !is_in_scope {
+	// 	return false
+	// }
 
-	for _, out_of_scope_sub := range program.OutOfScope {
-		if strings.HasSuffix(subdomain, out_of_scope_sub) {
-			is_in_scope = false
-			break
-		}
-	}
+	// for _, out_of_scope_sub := range program.OutOfScope {
+	// 	if strings.HasSuffix(subdomain, out_of_scope_sub) {
+	// 		is_in_scope = false
+	// 		break
+	// 	}
+	// }
 
 	return is_in_scope
 }
