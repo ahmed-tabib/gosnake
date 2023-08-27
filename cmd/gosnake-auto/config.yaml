@@ -1,0 +1,22 @@
+agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0"
+
+mongo:
+  uri:                  "mongodb+srv://elbo7:professionalskit@cluster0.dbuqs8k.mongodb.net/?retryWrites=true&w=majority"
+  db_name:              "bug-bounty"
+  subdomain_collection: "subdomains"
+  program_collection:   "programs"
+  vuln_collection:      "vulns"
+
+crawler:
+  timeout: 10
+  backoff: 1
+  threads: 20
+  regexes: 
+    - "<script[^>]*src=[\"']?([^\\?#'\" ]*)[\\?#\"']?"
+    - "<a[^>]*href=[\"']?([^\\?#'\" ]*)[\\?#\"']?"
+  targets_per_subdomain: 100
+
+attack:
+  timeout: 10
+  backoff: 1
+  threads: 512

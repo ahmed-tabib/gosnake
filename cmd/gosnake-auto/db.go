@@ -30,8 +30,8 @@ type MongoProgram struct {
 
 func FetchSubdomains(program_list *map[string]*cachesnake.BBProgram, db_client *mongo.Client, max_count int, cfg *Config) ([]*cachesnake.Subdomain, error) {
 	// Fetch the subdomains from the database
-	database := db_client.Database(cfg.MongoDBName)
-	subdomain_collection := database.Collection(cfg.MongoSubdomainCollName)
+	database := db_client.Database(cfg.Mongo.DBName)
+	subdomain_collection := database.Collection(cfg.Mongo.SubdomainCollName)
 
 	filter := bson.D{}
 	opts := options.Find().SetLimit(int64(max_count)).SetSort(bson.D{{"last_fetched_wcp", 1}})
@@ -75,7 +75,7 @@ func FetchSubdomains(program_list *map[string]*cachesnake.BBProgram, db_client *
 		// if the program is not in the list, fetch it from the database
 		if !in_map {
 			// fetch from db
-			program_collection := database.Collection(cfg.MongoProgramCollName)
+			program_collection := database.Collection(cfg.Mongo.ProgramCollName)
 			filter := bson.D{{"_id", s.ProgramID}}
 			fetched_program := MongoProgram{}
 			err = program_collection.FindOne(context.TODO(), filter).Decode(&fetched_program)
