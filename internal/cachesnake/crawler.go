@@ -12,17 +12,13 @@ import (
 )
 
 func GenerateTargets(subdomain_list []*Subdomain, targets_per_subdomain int, timeout time.Duration, backoff time.Duration, useragent string, regex_list []*regexp.Regexp, out chan<- AttackTarget) {
-	// URL finding regexes
-	//regex_list := make([]*regexp.Regexp, 2)
-	//regex_list[0] = regexp.MustCompile("<script[^>]*src=[\"']?([^\\?#'\" ]*)[\\?#\"']?")
-	//regex_list[1] = regexp.MustCompile("<a[^>]*href=[\"']?([^\\?#'\" ]*)[\\?#\"']?")
-
 	// bloom filter for visited urls
 	visited_urls := bloom.NewWithEstimates(uint(targets_per_subdomain*len(subdomain_list)), 0.02)
 
 	for _, subdomain := range subdomain_list {
 		url_queue := list.New()
 		target_count := 0
+		js_target_count := 0
 
 		// some seed values to startup our search
 		url_queue.PushBack("http://" + subdomain.Value)
@@ -45,6 +41,10 @@ func GenerateTargets(subdomain_list []*Subdomain, targets_per_subdomain int, tim
 			time.Sleep(backoff)
 			status_code, cookies, url_matches := urlVisitAndExtract(url, regex_list, timeout, useragent)
 			visited_urls.AddString(url)
+
+			if strings.HasSuffix(url, ".js") {
+				js_target_count++
+			}
 
 			// add cookies to subdomain object
 			for _, c := range cookies {
@@ -72,8 +72,9 @@ func GenerateTargets(subdomain_list []*Subdomain, targets_per_subdomain int, tim
 
 			// submit url as a target
 			out <- AttackTarget{
-				TargetURL:       url,
-				ParentSubdomain: subdomain,
+				TargetURL:        url,
+				ParentSubdomain:  subdomain,
+				CookieSearchOnly: js_target_count > 3,
 			}
 
 			// loop over urls found in the page

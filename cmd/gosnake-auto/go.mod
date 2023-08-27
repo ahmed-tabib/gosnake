@@ -8,6 +8,7 @@ require (
 	automation.com/cachesnake v0.0.0-00010101000000-000000000000
 	github.com/valyala/fasthttp v1.48.0
 	go.mongodb.org/mongo-driver v1.12.1
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
