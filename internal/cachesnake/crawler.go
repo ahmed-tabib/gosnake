@@ -11,13 +11,13 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-func GenerateTargets(subdomain_list []*Subdomain, targets_per_subdomain int, timeout time.Duration, backoff time.Duration, useragent string, regex_list []*regexp.Regexp, out chan<- AttackTarget) {
+func GenerateTargets(subdomain_list []*Subdomain, targets_per_subdomain int, timeout time.Duration, backoff time.Duration, useragent string, regex_list []*regexp.Regexp, out chan<- *AttackTarget) {
 	// bloom filter for visited urls
 	visited_urls := bloom.NewWithEstimates(uint(targets_per_subdomain*len(subdomain_list)), 0.02)
 
 	for _, subdomain := range subdomain_list {
 		url_queue := list.New()
-		target_count := 0
+		target_count := 2
 		js_target_count := 0
 
 		// some seed values to startup our search
@@ -71,7 +71,8 @@ func GenerateTargets(subdomain_list []*Subdomain, targets_per_subdomain int, tim
 			}
 
 			// submit url as a target
-			out <- AttackTarget{
+			target_count++
+			out <- &AttackTarget{
 				TargetURL:        url,
 				ParentSubdomain:  subdomain,
 				CookieSearchOnly: js_target_count > 3,
