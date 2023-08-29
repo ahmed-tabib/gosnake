@@ -2,25 +2,32 @@ package main
 
 import (
 	"fmt"
-	"time"
 
 	"automation.com/cachesnake"
-	"github.com/valyala/fasthttp"
 )
 
-func main() {
-	subdomain := &cachesnake.Subdomain{
-		Value:         "0a79005c03077dbc80bac1ed00250013.web-security-academy.net",
-		LastRequested: time.Now(),
-		CookieList:    make([]*fasthttp.Cookie, 0),
-	}
-
-	target := &cachesnake.AttackTarget{
-		TargetURL:       "https://0a79005c03077dbc80bac1ed00250013.web-security-academy.net/",
-		ParentSubdomain: subdomain,
-	}
-
-	result := cachesnake.RunAttacks(target, 15*time.Second, 500*time.Millisecond, "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0")
-
+func HandleResult(cfg *Config, result *cachesnake.AttackResult) {
 	fmt.Println(result)
+}
+
+func main() {
+	fmt.Println("Hello, World!")
+
+	cfg := ReadConfig("config.yaml")
+
+	subdomain_channel := make(chan *cachesnake.Subdomain, 500)
+	Stage1_Subdomains(cfg, subdomain_channel)
+
+	target_channel := make(chan *cachesnake.AttackTarget, 1000)
+	Stage2_Targets(cfg, subdomain_channel, target_channel)
+
+	result_channel := make(chan *cachesnake.AttackResult, 10)
+	Stage3_Attacks(cfg, target_channel, result_channel)
+
+	for {
+		result := <-result_channel
+		fmt.Println("Handling result....")
+		HandleResult(cfg, result)
+	}
+
 }
