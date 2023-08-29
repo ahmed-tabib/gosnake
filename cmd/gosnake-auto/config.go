@@ -23,6 +23,7 @@ type Config struct {
 		Threads             int
 		Regexes             []*regexp.Regexp
 		TargetsPerSubdomain int
+		MinSubdomainAge     time.Duration
 	}
 
 	Attack struct {
@@ -50,6 +51,7 @@ func (cfg *Config) UnmarshalYAML(value *yaml.Node) error {
 			Threads             int      `yaml:"threads"`
 			Regexes             []string `yaml:"regexes"`
 			TargetsPerSubdomain int      `yaml:"targets_per_subdomain"`
+			MinSubdomainAge     int      `yaml:"min_subdomain_age"`
 		} `yaml:"crawler"`
 
 		Attack struct {
@@ -76,6 +78,7 @@ func (cfg *Config) UnmarshalYAML(value *yaml.Node) error {
 	cfg.Crawler.Backoff = time.Duration(custom_struct.Crawler.Backoff) * time.Second
 	cfg.Crawler.Threads = custom_struct.Crawler.Threads
 	cfg.Crawler.TargetsPerSubdomain = custom_struct.Crawler.TargetsPerSubdomain
+	cfg.Crawler.MinSubdomainAge = time.Duration(custom_struct.Crawler.MinSubdomainAge) * time.Second
 
 	cfg.Attack.Timeout = time.Duration(custom_struct.Attack.Timeout) * time.Second
 	cfg.Attack.Backoff = time.Duration(custom_struct.Attack.Backoff) * time.Second

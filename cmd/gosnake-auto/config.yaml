@@ -10,13 +10,14 @@ mongo:
 crawler:
   timeout: 10
   backoff: 1
-  threads: 20
+  threads: 1
   regexes: 
     - "<script[^>]*src=[\"']?([^\\?#'\" ]*)[\\?#\"']?"
     - "<a[^>]*href=[\"']?([^\\?#'\" ]*)[\\?#\"']?"
-  targets_per_subdomain: 100
+  targets_per_subdomain: 3
+  min_subdomain_age: 30
 
 attack:
   timeout: 10
   backoff: 1
-  threads: 512
+  threads: 1
