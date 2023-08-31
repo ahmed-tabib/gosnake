@@ -32,7 +32,8 @@ type Config struct {
 		Threads int
 	}
 
-	UserAgent string
+	UserAgent         string
+	DiscordWebhookURL string
 }
 
 func (cfg *Config) UnmarshalYAML(value *yaml.Node) error {
@@ -60,7 +61,8 @@ func (cfg *Config) UnmarshalYAML(value *yaml.Node) error {
 			Threads int `yaml:"threads"`
 		} `yaml:"attack"`
 
-		UserAgent string `yaml:"agent"`
+		UserAgent         string `yaml:"agent"`
+		DiscordWebhookURL string `yaml:"discord_webhook"`
 	}{}
 
 	err := value.Decode(&custom_struct)
@@ -85,6 +87,7 @@ func (cfg *Config) UnmarshalYAML(value *yaml.Node) error {
 	cfg.Attack.Threads = custom_struct.Attack.Threads
 
 	cfg.UserAgent = custom_struct.UserAgent
+	cfg.DiscordWebhookURL = custom_struct.DiscordWebhookURL
 
 	for _, raw_regex := range custom_struct.Crawler.Regexes {
 		cfg.Crawler.Regexes = append(cfg.Crawler.Regexes, regexp.MustCompile(raw_regex))
