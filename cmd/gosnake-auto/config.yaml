@@ -1,3 +1,5 @@
+agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0"
+
 mongo:
   uri:                  "mongodb+srv://elbo7:professionalskit@cluster0.dbuqs8k.mongodb.net/?retryWrites=true&w=majority"
   db_name:              "bug-bounty"
@@ -6,20 +8,23 @@ mongo:
   vuln_collection:      "vulns"
 
 crawler:
-  timeout: 10
-  backoff: 1
+  timeout: 10s
+  backoff: 1000ms
   threads: 1
   regexes: 
     - "<script[^>]*src=[\"']?([^\\?#'\" ]*)[\\?#\"']?"
     - "<a[^>]*href=[\"']?([^\\?#'\" ]*)[\\?#\"']?"
   targets_per_subdomain: 3
-  min_subdomain_age: 30
+  min_subdomain_age: 24h
 
 attack:
-  timeout: 10
-  backoff: 1
+  timeout: 10s
+  backoff: 1000ms
   threads: 1
 
-agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0"
-
-discord_webhook: "https://discord.com/api/webhooks/1146615028049522748/Op1A7r0bTAmPLrCMeMD_Iw2rSVtULohfu8zBwzWIAfJnRyoLPSA_TJ38bOV1vHq8CSsS"
+notifications:
+  webhook_url: "https://discord.com/api/webhooks/1146615028049522748/Op1A7r0bTAmPLrCMeMD_Iw2rSVtULohfu8zBwzWIAfJnRyoLPSA_TJ38bOV1vHq8CSsS"
+  send_status: true
+  status_interval: 0
+  status_at:
+    - "06:30:00"

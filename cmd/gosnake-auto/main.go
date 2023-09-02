@@ -1,24 +1,17 @@
 package main
 
 import (
-	"fmt"
 	"time"
 
 	"automation.com/cachesnake"
 )
 
-func HandleResult(cfg *Config, result *cachesnake.AttackResult) {
-	fmt.Println(result)
-}
-
 func main() {
 	stats := &Statistics{StartTime: time.Now()}
 	cfg := ReadConfig("config.yaml")
 
-	start_message := "```[START]: Cachesnake Is Online.\n" + "[START]: At " + stats.StartTime.UTC().Format(time.RFC1123Z) + "```"
-	NotifyDiscordWebhook(cfg.DiscordWebhookURL, start_message, false)
-
-	return
+	notif := &Notify{}
+	notif.Init(cfg, stats, true)
 
 	subdomain_channel := make(chan *cachesnake.Subdomain, 500)
 	Stage1_Subdomains(cfg, stats, subdomain_channel)
@@ -31,8 +24,7 @@ func main() {
 
 	for {
 		result := <-result_channel
-		fmt.Println("Handling result....")
-		HandleResult(cfg, result)
+		notif.SendResult(result)
 	}
 
 }

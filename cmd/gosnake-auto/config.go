@@ -32,8 +32,14 @@ type Config struct {
 		Threads int
 	}
 
-	UserAgent         string
-	DiscordWebhookURL string
+	Notifications struct {
+		WebhookURL     string
+		SendStatus     bool
+		StatusInterval time.Duration
+		StatusAt       []string
+	}
+
+	UserAgent string
 }
 
 func (cfg *Config) UnmarshalYAML(value *yaml.Node) error {
@@ -47,22 +53,28 @@ func (cfg *Config) UnmarshalYAML(value *yaml.Node) error {
 		} `yaml:"mongo"`
 
 		Crawler struct {
-			Timeout             int      `yaml:"timeout"`
-			Backoff             int      `yaml:"backoff"`
+			Timeout             string   `yaml:"timeout"`
+			Backoff             string   `yaml:"backoff"`
 			Threads             int      `yaml:"threads"`
 			Regexes             []string `yaml:"regexes"`
 			TargetsPerSubdomain int      `yaml:"targets_per_subdomain"`
-			MinSubdomainAge     int      `yaml:"min_subdomain_age"`
+			MinSubdomainAge     string   `yaml:"min_subdomain_age"`
 		} `yaml:"crawler"`
 
 		Attack struct {
-			Timeout int `yaml:"timeout"`
-			Backoff int `yaml:"backoff"`
-			Threads int `yaml:"threads"`
+			Timeout string `yaml:"timeout"`
+			Backoff string `yaml:"backoff"`
+			Threads int    `yaml:"threads"`
 		} `yaml:"attack"`
 
-		UserAgent         string `yaml:"agent"`
-		DiscordWebhookURL string `yaml:"discord_webhook"`
+		Notifications struct {
+			WebhookURL     string   `yaml:"webhook_url"`
+			SendStatus     bool     `yaml:"send_status"`
+			StatusInterval string   `yaml:"status_interval"`
+			StatusAt       []string `yaml:"status_at"`
+		} `yaml:"notifications"`
+
+		UserAgent string `yaml:"agent"`
 	}{}
 
 	err := value.Decode(&custom_struct)
@@ -76,18 +88,22 @@ func (cfg *Config) UnmarshalYAML(value *yaml.Node) error {
 	cfg.Mongo.ProgramCollName = custom_struct.Mongo.ProgramCollName
 	cfg.Mongo.VulnCollName = custom_struct.Mongo.VulnCollName
 
-	cfg.Crawler.Timeout = time.Duration(custom_struct.Crawler.Timeout) * time.Second
-	cfg.Crawler.Backoff = time.Duration(custom_struct.Crawler.Backoff) * time.Second
+	cfg.Crawler.Timeout, _ = time.ParseDuration(custom_struct.Crawler.Timeout)
+	cfg.Crawler.Backoff, _ = time.ParseDuration(custom_struct.Crawler.Backoff)
 	cfg.Crawler.Threads = custom_struct.Crawler.Threads
 	cfg.Crawler.TargetsPerSubdomain = custom_struct.Crawler.TargetsPerSubdomain
-	cfg.Crawler.MinSubdomainAge = time.Duration(custom_struct.Crawler.MinSubdomainAge) * time.Second
+	cfg.Crawler.MinSubdomainAge, _ = time.ParseDuration(custom_struct.Crawler.MinSubdomainAge)
 
-	cfg.Attack.Timeout = time.Duration(custom_struct.Attack.Timeout) * time.Second
-	cfg.Attack.Backoff = time.Duration(custom_struct.Attack.Backoff) * time.Second
+	cfg.Attack.Timeout, _ = time.ParseDuration(custom_struct.Attack.Timeout)
+	cfg.Attack.Backoff, _ = time.ParseDuration(custom_struct.Attack.Backoff)
 	cfg.Attack.Threads = custom_struct.Attack.Threads
 
+	cfg.Notifications.WebhookURL = custom_struct.Notifications.WebhookURL
+	cfg.Notifications.SendStatus = custom_struct.Notifications.SendStatus
+	cfg.Notifications.StatusInterval, _ = time.ParseDuration(custom_struct.Notifications.StatusInterval)
+	cfg.Notifications.StatusAt = custom_struct.Notifications.StatusAt
+
 	cfg.UserAgent = custom_struct.UserAgent
-	cfg.DiscordWebhookURL = custom_struct.DiscordWebhookURL
 
 	for _, raw_regex := range custom_struct.Crawler.Regexes {
 		cfg.Crawler.Regexes = append(cfg.Crawler.Regexes, regexp.MustCompile(raw_regex))
