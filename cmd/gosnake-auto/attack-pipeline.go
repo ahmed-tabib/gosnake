@@ -58,7 +58,7 @@ func Stage1_Subdomains(params StageParams) {
 				params.Stats.Subdomains.TotalFetched += len(subs)
 				params.Stats.Subdomains.FetchMutex.Unlock()
 			} else {
-				params.Notif.SendLowPriority("```--------[NOTICE]--------\nOut of subdomains, sleeping for 10 minutes.\nCurrent time is: " + time.Now().UTC().Format(time.RFC3339))
+				params.Notif.SendLowPriority("```------------[NOTICE]------------\nOut of subdomains, sleeping for 10 minutes.\nCurrent time is: " + time.Now().UTC().Format(time.RFC3339) + "```")
 				time.Sleep(10 * time.Minute)
 				continue
 			}

@@ -37,7 +37,6 @@ func FetchSubdomains(program_list *map[string]*cachesnake.BBProgram, db_client *
 	opts := options.Find().SetLimit(int64(max_count)).SetSort(bson.D{{"last_fetched_wcp", 1}})
 
 	cursor, err := subdomain_collection.Find(context.TODO(), filter, opts)
-	defer cursor.Close(context.TODO())
 
 	if err != nil {
 		return nil, err
@@ -107,6 +106,11 @@ func FetchSubdomains(program_list *map[string]*cachesnake.BBProgram, db_client *
 		}
 
 		result = append(result, &subdomain)
+	}
+
+	err = cursor.Close(context.TODO())
+	if err != nil {
+		return nil, err
 	}
 
 	if len(result) == 0 {
