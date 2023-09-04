@@ -2,17 +2,28 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"automation.com/cachesnake"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func Stage1_Subdomains(cfg *Config, stats *Statistics, sub_chan chan<- *cachesnake.Subdomain) {
+type StageParams struct {
+	Cfg           *Config
+	Stats         *Statistics
+	Notif         *Notify
+	InputChannel  any
+	OutputChannel any
+}
+
+func Stage1_Subdomains(params StageParams) {
 	go func() {
 		// setup db client
-		client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(cfg.Mongo.URI))
+		client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(params.Cfg.Mongo.URI))
 		if err != nil {
+			params.Notif.SendImmediate("```--------[FATAL ERROR]--------\nFailed to create MongoDB client.\n[Error Message]: " + fmt.Sprint(err) + "```")
 			panic(err)
 		}
 
@@ -22,13 +33,14 @@ func Stage1_Subdomains(cfg *Config, stats *Statistics, sub_chan chan<- *cachesna
 		err_count := 0
 		for {
 
-			subs, err := FetchSubdomains(&program_list, client, 500, cfg)
+			subs, err := FetchSubdomains(&program_list, client, 500, params.Cfg)
 
 			// if err retry, if persists panic
 			if err != nil {
 				err_count++
 
 				if err_count > 10 {
+					params.Notif.SendImmediate("```--------[FATAL ERROR]--------\nFetching Subdomains resulted in an error more than 10 times in a row.\n[Error Message]: " + fmt.Sprint(err) + "```")
 					panic(err)
 				}
 
@@ -37,39 +49,43 @@ func Stage1_Subdomains(cfg *Config, stats *Statistics, sub_chan chan<- *cachesna
 			err_count = 0
 
 			// Update stats
-			if stats.Programs.SeenMutex.TryLock() {
-				stats.Programs.TotalSeen += len(program_list) - stats.Programs.TotalSeen
-				stats.Programs.SeenMutex.Unlock()
+			if params.Stats.Programs.SeenMutex.TryLock() {
+				params.Stats.Programs.TotalSeen += len(program_list) - params.Stats.Programs.TotalSeen
+				params.Stats.Programs.SeenMutex.Unlock()
 			}
 			if len(subs) > 0 {
-				stats.Subdomains.FetchMutex.Lock()
-				stats.Subdomains.TotalFetched += len(subs)
-				stats.Subdomains.FetchMutex.Unlock()
+				params.Stats.Subdomains.FetchMutex.Lock()
+				params.Stats.Subdomains.TotalFetched += len(subs)
+				params.Stats.Subdomains.FetchMutex.Unlock()
+			} else {
+				params.Notif.SendLowPriority("```--------[NOTICE]--------\nOut of subdomains, sleeping for 10 minutes.\nCurrent time is: " + time.Now().UTC().Format(time.RFC3339))
+				time.Sleep(10 * time.Minute)
+				continue
 			}
 
 			// finally, output the subdomains
 			for _, subdomain := range subs {
-				sub_chan <- subdomain
+				params.OutputChannel.(chan *cachesnake.Subdomain) <- subdomain
 			}
 
 		}
 	}()
 }
 
-func Stage2_Targets(cfg *Config, stats *Statistics, sub_chan <-chan *cachesnake.Subdomain, target_chan chan<- *cachesnake.AttackTarget) {
+func Stage2_Targets(params StageParams) {
 
-	for i := 0; i < cfg.Crawler.Threads; i++ {
+	for i := 0; i < params.Cfg.Crawler.Threads; i++ {
 
 		go func() {
 			subdomain := make([]*cachesnake.Subdomain, 1, 1)
 
 			for {
-				subdomain[0] = <-sub_chan
-				cachesnake.GenerateTargets(subdomain, cfg.Crawler.TargetsPerSubdomain, cfg.Crawler.Timeout, cfg.Crawler.Backoff, cfg.UserAgent, cfg.Crawler.Regexes, target_chan)
+				subdomain[0] = <-params.InputChannel.(chan *cachesnake.Subdomain)
+				cachesnake.GenerateTargets(subdomain, params.Cfg.Crawler.TargetsPerSubdomain, params.Cfg.Crawler.Timeout, params.Cfg.Crawler.Backoff, params.Cfg.UserAgent, params.Cfg.Crawler.Regexes, params.OutputChannel.(chan *cachesnake.AttackTarget))
 
-				stats.Subdomains.CrawlMutex.Lock()
-				stats.Subdomains.TotalCrawled++
-				stats.Subdomains.CrawlMutex.Unlock()
+				params.Stats.Subdomains.CrawlMutex.Lock()
+				params.Stats.Subdomains.TotalCrawled++
+				params.Stats.Subdomains.CrawlMutex.Unlock()
 			}
 		}()
 
@@ -77,21 +93,21 @@ func Stage2_Targets(cfg *Config, stats *Statistics, sub_chan <-chan *cachesnake.
 
 }
 
-func Stage3_Attacks(cfg *Config, stats *Statistics, target_chan <-chan *cachesnake.AttackTarget, result_chan chan<- *cachesnake.AttackResult) {
+func Stage3_Attacks(params StageParams) {
 
-	for i := 0; i < cfg.Attack.Threads; i++ {
+	for i := 0; i < params.Cfg.Attack.Threads; i++ {
 
 		go func() {
 			for {
-				target := <-target_chan
-				result := cachesnake.RunAttacks(target, cfg.Attack.Timeout, cfg.Attack.Backoff, cfg.UserAgent)
+				target := <-params.InputChannel.(chan *cachesnake.AttackTarget)
+				result := cachesnake.RunAttacks(target, params.Cfg.Attack.Timeout, params.Cfg.Attack.Backoff, params.Cfg.UserAgent)
 
 				if len(result.VulnList) > 0 {
-					result_chan <- &result
+					params.OutputChannel.(chan *cachesnake.AttackResult) <- &result
 
-					stats.Vulns.FoundMutex.Lock()
-					stats.Vulns.TotalFound++
-					stats.Vulns.FoundMutex.Unlock()
+					params.Stats.Vulns.FoundMutex.Lock()
+					params.Stats.Vulns.TotalFound++
+					params.Stats.Vulns.FoundMutex.Unlock()
 				}
 			}
 		}()
