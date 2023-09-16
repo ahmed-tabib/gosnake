@@ -1010,6 +1010,10 @@ func RunBruteforce(target *AttackTarget, net_ctx *HttpContext, backoff time.Dura
 		shouldTest := false
 		for _, reason := range v.Reasons {
 			shouldTest = shouldTest || (reason == reason_ValueReflectedBody || reason == reason_SetCookiePresent)
+			if reason == reason_StatusCodeModified {
+				shouldTest = false
+				break
+			}
 		}
 
 		if !shouldTest {
