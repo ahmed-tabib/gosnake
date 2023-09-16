@@ -1,7 +1,6 @@
 package cachesnake
 
 import (
-	"strings"
 	"sync"
 	"time"
 
@@ -59,13 +58,13 @@ type BBProgram struct {
 
 // Determine if a given subdomain is in the scope of a program
 func (program *BBProgram) IsInScope(subdomain string) bool {
-	is_in_scope := false
-	for _, in_scope_sub := range program.InScope {
-		if strings.HasSuffix(subdomain, in_scope_sub) {
-			is_in_scope = true
-			break
-		}
-	}
+	// is_in_scope := false
+	// for _, in_scope_sub := range program.InScope {
+	// 	if strings.HasSuffix(subdomain, in_scope_sub) {
+	// 		is_in_scope = true
+	// 		break
+	// 	}
+	// }
 
 	// if !is_in_scope {
 	// 	return false
@@ -78,7 +77,7 @@ func (program *BBProgram) IsInScope(subdomain string) bool {
 	// 	}
 	// }
 
-	return is_in_scope
+	return true
 }
 
 type Subdomain struct {
