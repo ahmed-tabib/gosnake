@@ -149,7 +149,7 @@ func RunAttacks(target *AttackTarget, timeout time.Duration, backoff time.Durati
 	}
 
 	// Try Evil Agent
-	attack_works, attack_headers = RunEvilAgent(target, &net_ctx, backoff)
+	attack_works, attack_headers = false, nil //RunEvilAgent(target, &net_ctx, backoff)
 	if attack_works {
 		v := Vuln{
 			Name:             "Evil User-Agent",
