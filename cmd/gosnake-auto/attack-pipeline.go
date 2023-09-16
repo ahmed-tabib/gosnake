@@ -100,7 +100,16 @@ func Stage3_Attacks(params StageParams) {
 		go func() {
 			for {
 				target := <-params.InputChannel.(chan *cachesnake.AttackTarget)
+
+				params.Stats.Targets.FetchMutex.Lock()
+				params.Stats.Targets.TotalFetched += 1
+				params.Stats.Targets.FetchMutex.Unlock()
+
 				result := cachesnake.RunAttacks(target, params.Cfg.Attack.Timeout, params.Cfg.Attack.Backoff, params.Cfg.UserAgent)
+
+				params.Stats.Targets.AttackMutex.Lock()
+				params.Stats.Targets.TotalAttacked += 1
+				params.Stats.Targets.AttackMutex.Unlock()
 
 				if len(result.VulnList) > 0 {
 					params.OutputChannel.(chan *cachesnake.AttackResult) <- &result

@@ -33,7 +33,7 @@ func FetchSubdomains(program_list *map[string]*cachesnake.BBProgram, db_client *
 	database := db_client.Database(cfg.Mongo.DBName)
 	subdomain_collection := database.Collection(cfg.Mongo.SubdomainCollName)
 
-	filter := bson.D{{"last_fetched_wcp", bson.D{{"$lte", time.Now().Add(-1 * cfg.Crawler.MinSubdomainAge)}}}}
+	filter := bson.D{{}} //"last_fetched_wcp", bson.D{{"$lte", time.Now().Add(-1 * cfg.Crawler.MinSubdomainAge)}}}}
 	opts := options.Find().SetLimit(int64(max_count)).SetSort(bson.D{{"last_fetched_wcp", 1}})
 
 	cursor, err := subdomain_collection.Find(context.TODO(), filter, opts)
