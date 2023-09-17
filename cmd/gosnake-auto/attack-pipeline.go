@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"automation.com/cachesnake"
+	"github.com/valyala/fasthttp"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -118,6 +119,8 @@ func Stage3_Attacks(params StageParams) {
 					params.Stats.Vulns.TotalFound++
 					params.Stats.Vulns.FoundMutex.Unlock()
 				}
+
+				fasthttp.ReleaseResponse(target.InitialResponse)
 			}
 		}()
 
