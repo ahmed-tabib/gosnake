@@ -112,6 +112,29 @@ func Stage3_Attacks(params StageParams) {
 				params.Stats.Targets.TotalAttacked += 1
 				params.Stats.Targets.AttackMutex.Unlock()
 
+				true_positive_indices := make([]int, 0)
+				for i, v := range result.VulnList {
+
+					if v.Name == "Header Bruteforce" {
+						if len(v.OffendingHeaders) < 10 {
+							true_positive_indices = append(true_positive_indices, i)
+						}
+					} else if v.Name == "Reflected Cookie" {
+						true_positive_indices = append(true_positive_indices, i)
+					} else {
+						if len(v.OffendingHeaders) < 5 {
+							true_positive_indices = append(true_positive_indices, i)
+						}
+					}
+
+				}
+				new_vuln_list := make([]cachesnake.Vuln, len(true_positive_indices))
+				for i := range new_vuln_list {
+					new_vuln_list[i] = result.VulnList[true_positive_indices[i]]
+				}
+
+				result.VulnList = new_vuln_list
+
 				if len(result.VulnList) > 0 {
 					params.OutputChannel.(chan *cachesnake.AttackResult) <- &result
 
