@@ -113,9 +113,11 @@ func Stage3_Attacks(params StageParams) {
 				params.Stats.Targets.AttackMutex.Unlock()
 
 				true_positive_indices := make([]int, 0)
+				header_bruteforce_count := 0
 				for i, v := range result.VulnList {
 
 					if v.Name == "Header Bruteforce" {
+						header_bruteforce_count += 1
 						if len(v.OffendingHeaders) < 10 {
 							true_positive_indices = append(true_positive_indices, i)
 						}
@@ -135,7 +137,7 @@ func Stage3_Attacks(params StageParams) {
 
 				result.VulnList = new_vuln_list
 
-				if len(result.VulnList) > 0 {
+				if len(result.VulnList) > 0 && header_bruteforce_count < 10 {
 					params.OutputChannel.(chan *cachesnake.AttackResult) <- &result
 
 					params.Stats.Vulns.FoundMutex.Lock()
