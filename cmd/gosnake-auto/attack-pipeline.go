@@ -168,12 +168,14 @@ func Stage4_Triage(params StageParams) {
 					vuln_intersection := make([]cachesnake.Vuln, 0, 10)
 					for _, tv := range triage_result.VulnList {
 						if tv.Name == "Header Bruteforce" {
-							if slices.ContainsFunc(result.VulnList, func(v cachesnake.Vuln) { return v.Name == tv.Name && v.OffendingHeaders[0] == tv.OffendingHeaders[0] }) {
+							if slices.ContainsFunc(result.VulnList, func(v cachesnake.Vuln) bool {
+								return v.Name == tv.Name && v.OffendingHeaders[0] == tv.OffendingHeaders[0]
+							}) {
 								vuln_intersection = append(vuln_intersection, tv)
 							}
 						}
 
-						if slices.ContainsFunc(result.VulnList, func(v cachesnake.Vuln) { return v.Name == tv.Name }) {
+						if slices.ContainsFunc(result.VulnList, func(v cachesnake.Vuln) bool { return v.Name == tv.Name }) {
 							vuln_intersection = append(vuln_intersection, tv)
 						}
 					}
