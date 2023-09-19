@@ -37,7 +37,7 @@ func RunAttacks(target *AttackTarget, timeout time.Duration, backoff time.Durati
 	// If we don't have an initial response fetch it
 	if target.InitialResponse == nil {
 		target.InitialResponse = fasthttp.AcquireResponse()
-		defer fasthttp.ReleaseResponse(target.InitialResponse)
+		defer func() { fasthttp.ReleaseResponse(target.InitialResponse); target.InitialResponse = nil }()
 
 		net_ctx.Request.SetRequestURI(target.TargetURL)
 		net_ctx.Request.Header.SetMethod("GET")

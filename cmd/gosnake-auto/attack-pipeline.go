@@ -190,7 +190,9 @@ func Stage4_Triage(params StageParams) {
 					}
 				}
 
-				fasthttp.ReleaseResponse(result.Target.InitialResponse)
+				if result.Target.InitialResponse != nil {
+					fasthttp.ReleaseResponse(result.Target.InitialResponse)
+				}
 			}
 		}()
 
