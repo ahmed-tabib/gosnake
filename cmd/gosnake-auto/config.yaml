@@ -10,17 +10,21 @@ mongo:
 crawler:
   timeout: 10s
   backoff: 1000ms
-  threads: 1
+  threads: 20
   regexes: 
     - "<script[^>]*src=[\"']?([^\\?#'\" ]*)[\\?#\"']?"
     - "<a[^>]*href=[\"']?([^\\?#'\" ]*)[\\?#\"']?"
-  targets_per_subdomain: 3
+  targets_per_subdomain: 20
   min_subdomain_age: 24h
 
 attack:
   timeout: 10s
   backoff: 1000ms
-  threads: 1
+  threads: 300
+
+triage:
+  threads: 5
+
 
 notifications:
   webhook_url: "https://discord.com/api/webhooks/1146615028049522748/Op1A7r0bTAmPLrCMeMD_Iw2rSVtULohfu8zBwzWIAfJnRyoLPSA_TJ38bOV1vHq8CSsS"

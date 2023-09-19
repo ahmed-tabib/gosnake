@@ -32,6 +32,10 @@ type Config struct {
 		Threads int
 	}
 
+	Triage struct {
+		Threads int
+	}
+
 	Notifications struct {
 		WebhookURL     string
 		SendStatus     bool
@@ -67,6 +71,10 @@ func (cfg *Config) UnmarshalYAML(value *yaml.Node) error {
 			Threads int    `yaml:"threads"`
 		} `yaml:"attack"`
 
+		Triage struct {
+			Threads int `yaml:"threads"`
+		} `yaml:"triage"`
+
 		Notifications struct {
 			WebhookURL     string   `yaml:"webhook_url"`
 			SendStatus     bool     `yaml:"send_status"`
@@ -97,6 +105,8 @@ func (cfg *Config) UnmarshalYAML(value *yaml.Node) error {
 	cfg.Attack.Timeout, _ = time.ParseDuration(custom_struct.Attack.Timeout)
 	cfg.Attack.Backoff, _ = time.ParseDuration(custom_struct.Attack.Backoff)
 	cfg.Attack.Threads = custom_struct.Attack.Threads
+
+	cfg.Triage.Threads = custom_struct.Triage.Threads
 
 	cfg.Notifications.WebhookURL = custom_struct.Notifications.WebhookURL
 	cfg.Notifications.SendStatus = custom_struct.Notifications.SendStatus

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"automation.com/cachesnake"
@@ -95,7 +96,6 @@ func Stage2_Targets(params StageParams) {
 }
 
 func Stage3_Attacks(params StageParams) {
-
 	for i := 0; i < params.Cfg.Attack.Threads; i++ {
 
 		go func() {
@@ -112,24 +112,47 @@ func Stage3_Attacks(params StageParams) {
 				params.Stats.Targets.TotalAttacked += 1
 				params.Stats.Targets.AttackMutex.Unlock()
 
+				if len(result.VulnList) > 0 {
+					params.OutputChannel.(chan *cachesnake.AttackResult) <- &result
+
+					params.Stats.Vulns.FoundMutex.Lock()
+					params.Stats.Vulns.TotalFound++
+					params.Stats.Vulns.FoundMutex.Unlock()
+				}
+			}
+		}()
+
+	}
+
+}
+
+func Stage4_Triage(params StageParams) {
+
+	for i := 0; i < params.Cfg.Triage.Threads; i++ {
+
+		go func() {
+			for {
+				result := <-params.InputChannel.(chan *cachesnake.AttackResult)
+
 				true_positive_indices := make([]int, 0)
 				header_bruteforce_count := 0
 				for i, v := range result.VulnList {
 
-					if v.Name == "Header Bruteforce" {
+					switch v.Name {
+					case "Header Bruteforce":
 						header_bruteforce_count += 1
 						if len(v.OffendingHeaders) < 10 {
 							true_positive_indices = append(true_positive_indices, i)
 						}
-					} else if v.Name == "Reflected Cookie" {
+					case "Reflected Cookie":
 						true_positive_indices = append(true_positive_indices, i)
-					} else {
+					default:
 						if len(v.OffendingHeaders) < 5 {
 							true_positive_indices = append(true_positive_indices, i)
 						}
 					}
-
 				}
+
 				new_vuln_list := make([]cachesnake.Vuln, len(true_positive_indices))
 				for i := range new_vuln_list {
 					new_vuln_list[i] = result.VulnList[true_positive_indices[i]]
@@ -138,14 +161,34 @@ func Stage3_Attacks(params StageParams) {
 				result.VulnList = new_vuln_list
 
 				if len(result.VulnList) > 0 && header_bruteforce_count < 10 {
-					params.OutputChannel.(chan *cachesnake.AttackResult) <- &result
 
-					params.Stats.Vulns.FoundMutex.Lock()
-					params.Stats.Vulns.TotalFound++
-					params.Stats.Vulns.FoundMutex.Unlock()
+					// Retry attacks to make sure they absolutely work
+					triage_result := cachesnake.RunAttacks(result.Target, params.Cfg.Attack.Timeout, params.Cfg.Attack.Backoff, params.Cfg.UserAgent)
+
+					vuln_intersection := make([]cachesnake.Vuln, 0, 10)
+					for _, tv := range triage_result.VulnList {
+						if tv.Name == "Header Bruteforce" {
+							if slices.ContainsFunc(result.VulnList, func(v cachesnake.Vuln) { return v.Name == tv.Name && v.OffendingHeaders[0] == tv.OffendingHeaders[0] }) {
+								vuln_intersection = append(vuln_intersection, tv)
+							}
+						}
+
+						if slices.ContainsFunc(result.VulnList, func(v cachesnake.Vuln) { return v.Name == tv.Name }) {
+							vuln_intersection = append(vuln_intersection, tv)
+						}
+					}
+
+					if len(vuln_intersection) > 0 {
+						triage_result.VulnList = vuln_intersection
+						params.OutputChannel.(chan *cachesnake.AttackResult) <- &triage_result
+
+						params.Stats.Vulns.FoundMutex.Lock()
+						params.Stats.Vulns.TotalFound++
+						params.Stats.Vulns.FoundMutex.Unlock()
+					}
 				}
 
-				fasthttp.ReleaseResponse(target.InitialResponse)
+				fasthttp.ReleaseResponse(result.Target.InitialResponse)
 			}
 		}()
 

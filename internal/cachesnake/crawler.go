@@ -101,7 +101,7 @@ func GenerateTargets(subdomain_list []*Subdomain, targets_per_subdomain int, tim
 						root_url := protocol_url_pair[0] + "://" + strings.Split(protocol_url_pair[1], "/")[0]
 						match = root_url + match
 
-					} else if !strings.HasPrefix(match, "http") {
+					} else if !strings.HasPrefix(match, "http://") && !strings.HasPrefix(match, "https://") {
 						// ignore url fragments & params etc...
 						continue
 					}
