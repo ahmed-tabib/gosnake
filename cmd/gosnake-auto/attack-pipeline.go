@@ -112,6 +112,9 @@ func Stage3_Attacks(params StageParams) {
 				params.Stats.Targets.TotalAttacked += 1
 				params.Stats.Targets.AttackMutex.Unlock()
 
+				fasthttp.ReleaseResponse(target.InitialResponse)
+				target.InitialResponse = nil
+
 				if len(result.VulnList) > 0 {
 					params.OutputChannel.(chan *cachesnake.AttackResult) <- &result
 
