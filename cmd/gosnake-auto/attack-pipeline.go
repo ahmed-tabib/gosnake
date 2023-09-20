@@ -10,6 +10,7 @@ import (
 	"github.com/valyala/fasthttp"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"golang.org/x/exp/slices"
 )
 
 type StageParams struct {
@@ -181,6 +182,9 @@ func Stage4_Triage(params StageParams) {
 					}
 
 					if len(vuln_intersection) > 0 {
+						vuln_intersection = slices.CompactFunc(vuln_intersection, func(v1 cachesnake.Vuln, v2 cachesnake.Vuln) bool {
+							return v1.Name == v2.Name && v1.OffendingHeaders[0] == v2.OffendingHeaders[0]
+						})
 						triage_result.VulnList = vuln_intersection
 						params.OutputChannel.(chan *cachesnake.AttackResult) <- &triage_result
 
