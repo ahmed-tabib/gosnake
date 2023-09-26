@@ -35,7 +35,7 @@ func Stage1_Subdomains(params StageParams) {
 		err_count := 0
 		for {
 
-			subs, err := FetchSubdomains(&program_list, client, 500, params.Cfg)
+			subs, err := FetchSubdomains(&program_list, client, 50, params.Cfg)
 
 			// if err retry, if persists panic
 			if err != nil {

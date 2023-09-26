@@ -15,7 +15,7 @@ func main() {
 
 	go func() { time.Sleep(time.Minute * 2); notif.SendStatusUpdate() }()
 
-	subdomain_channel := make(chan *cachesnake.Subdomain, 500)
+	subdomain_channel := make(chan *cachesnake.Subdomain, 50)
 	target_channel := make(chan *cachesnake.AttackTarget, 700)
 	result_channel := make(chan *cachesnake.AttackResult, 20)
 	triage_channel := make(chan *cachesnake.AttackResult, 10)
