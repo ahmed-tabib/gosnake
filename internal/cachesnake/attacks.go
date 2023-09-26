@@ -551,8 +551,28 @@ func RunLargeHeaderCount(target *AttackTarget, net_ctx *HttpContext, backoff tim
 	//Note result without the header present
 	result_without_header := net_ctx.Response.StatusCode() != target.InitialResponse.StatusCode()
 
+	//Control, make sure we didn't just get a captcha or something of the sort
+	//If the decision tells us we should keep the result, it means it wasn't cache,
+	//rather some defense mechanism, that changes the page for us only.
+	//Cloudflare is the usual offender here.
+	if !result_with_header && result_without_header {
+		return false, nil
+	}
+
+	cache_buster = GenRandString(10)
+	query_params.Set("cachebuster", cache_buster)
+
+	net_ctx.Request.Header.Set("accept", "*/*, text/"+cache_buster)
+
+	err = net_ctx.Client.Do(net_ctx.Request, net_ctx.Response)
+	if err != nil {
+		return false, nil
+	}
+
+	control_result := net_ctx.Response.StatusCode() != target.InitialResponse.StatusCode()
+
 	//The result is cached only if both tests are true
-	return result_with_header && result_without_header, nil
+	return !control_result, nil
 }
 
 // Attempt to cause a HEAD response

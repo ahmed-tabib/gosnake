@@ -58,8 +58,9 @@ func GenerateTargets(subdomain_list []*Subdomain, targets_per_subdomain int, tim
 
 				}
 				if !already_in_list {
-					if len(c.Value()) <= 8 {
-						c.SetValueBytes(append(c.Value(), []byte(GenRandString(6))...))
+					normalized_cookie_name := strings.ToLower(string(c.Key()))
+					if !(strings.Contains(normalized_cookie_name, "session") || strings.Contains(normalized_cookie_name, "sess")) {
+						c.SetValueBytes(append(c.Value(), []byte(GenRandString(8))...))
 					}
 					subdomain.CookieList = append(subdomain.CookieList, c)
 				}

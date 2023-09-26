@@ -232,8 +232,28 @@ func IsHeaderEffectCached(args *HeaderBinarySearchArgs) []Decision {
 		//Note result without the header present
 		result_without_header := args.DecisionFunc([][]string{h_v_pair}, args.Target, args.NetCtx.Response)
 
+		//Control, make sure we didn't just get a captcha or something of the sort
+		//If the decision tells us we should keep the result, it means it wasn't cache,
+		//rather some defense mechanism, that changes the page for us only.
+		//Cloudflare is the usual offender here.
+		if !(result_with_header.ShouldKeep && result_without_header.ShouldKeep) {
+			continue
+		}
+
+		cache_buster = GenRandString(10)
+		query_params.Set("cachebuster", cache_buster)
+
+		args.NetCtx.Request.Header.Set("accept", "*/*, text/"+cache_buster)
+
+		err = args.NetCtx.Client.Do(args.NetCtx.Request, args.NetCtx.Response)
+		if err != nil {
+			continue
+		}
+
+		control_result := args.DecisionFunc([][]string{h_v_pair}, args.Target, args.NetCtx.Response)
+
 		//The result is cached only if both tests are true
-		result[i].ShouldKeep = result_with_header.ShouldKeep && result_without_header.ShouldKeep
+		result[i].ShouldKeep = !control_result.ShouldKeep
 		result[i].Reasons = result_with_header.Reasons
 
 		//Respect the backoff time or face the wrath of the rate-limiter
