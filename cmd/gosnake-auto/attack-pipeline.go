@@ -180,7 +180,7 @@ func Stage4_Triage(params StageParams) {
 						}
 					}
 
-					if len(vuln_intersection) > 0 {
+					if len(vuln_intersection) > 0 && len(vuln_intersection) < 15 {
 						vuln_intersection = slices.CompactFunc(vuln_intersection, func(v1 cachesnake.Vuln, v2 cachesnake.Vuln) bool {
 							return v1.Name == v2.Name && v1.OffendingHeaders[0] == v2.OffendingHeaders[0]
 						})
