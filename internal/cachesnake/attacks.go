@@ -555,7 +555,7 @@ func RunLargeHeaderCount(target *AttackTarget, net_ctx *HttpContext, backoff tim
 	//If the decision tells us we should keep the result, it means it wasn't cache,
 	//rather some defense mechanism, that changes the page for us only.
 	//Cloudflare is the usual offender here.
-	if !result_with_header && result_without_header {
+	if !(result_with_header && result_without_header) {
 		return false, nil
 	}
 
