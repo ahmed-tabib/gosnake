@@ -1,14 +1,17 @@
 package main
 
 import (
+	"flag"
 	"time"
 
 	"automation.com/cachesnake"
 )
 
 func main() {
+	cfg_file := flag.String("c", "config.yaml", "Path to the config file")
+
 	stats := &Statistics{StartTime: time.Now()}
-	cfg := ReadConfig("config.yaml")
+	cfg := ReadConfig(*cfg_file)
 
 	notif := &Notify{}
 	notif.Init(cfg, stats, true)
