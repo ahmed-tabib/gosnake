@@ -24,8 +24,8 @@ GoSnake is an open-source security tool written in Go, containing two binaries d
 
 ### Installation
 ```bash
-go get -u github.com/yourusername/gosnake/cmd/gosnake-cli
-go get -u github.com/yourusername/gosnake/cmd/gosnake-auto
+go get -u github.com/ahmed-tabib/gosnake/cmd/gosnake-cli
+go get -u github.com/ahmed-tabib/gosnake/cmd/gosnake-auto
 ```
 
 ## Usage
