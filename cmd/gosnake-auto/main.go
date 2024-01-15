@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"time"
 
 	"automation.com/cachesnake"
@@ -9,6 +10,9 @@ import (
 
 func main() {
 	cfg_file := flag.String("c", "config.yaml", "Path to the config file")
+	flag.Parse()
+
+	fmt.Println("CACHESNAKE STARTUP SEQUENCE BEGIN. CONFIG AT \"" + *cfg_file + "\"")
 
 	stats := &Statistics{StartTime: time.Now()}
 	cfg := ReadConfig(*cfg_file)
@@ -56,6 +60,8 @@ func main() {
 	Stage2_Targets(stage2_params)
 	Stage3_Attacks(stage3_params)
 	Stage4_Triage(stage4_params)
+
+	fmt.Println("CACHESNAKE STARTUP SEQUENCE DONE.")
 
 	for {
 		result := <-stage4_params.OutputChannel.(chan *cachesnake.AttackResult)
