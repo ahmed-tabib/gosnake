@@ -79,18 +79,25 @@ func FetchSubdomains(program_list *map[string]*cachesnake.BBProgram, db_client *
 			fetched_program := MongoProgram{}
 			err = program_collection.FindOne(context.TODO(), filter).Decode(&fetched_program)
 
-			// if we have an error simply move on to the next subdomain
+			// if we have an error, make a mock program
 			if err != nil {
-				continue
-			}
-
-			program = &cachesnake.BBProgram{
-				ProgramName:    fetched_program.ProgramName,
-				ProgramURL:     fetched_program.ProgramURL,
-				Platform:       fetched_program.Platform,
-				OffersBounties: fetched_program.OffersBounties,
-				InScope:        fetched_program.InScope,
-				OutOfScope:     fetched_program.OutOfScope,
+				program = &cachesnake.BBProgram{
+					ProgramName:    "N/A",
+					ProgramURL:     "N/A",
+					Platform:       "N/A",
+					OffersBounties: false,
+					InScope:        []string{},
+					OutOfScope:     []string{},
+				}
+			} else {
+				program = &cachesnake.BBProgram{
+					ProgramName:    fetched_program.ProgramName,
+					ProgramURL:     fetched_program.ProgramURL,
+					Platform:       fetched_program.Platform,
+					OffersBounties: fetched_program.OffersBounties,
+					InScope:        fetched_program.InScope,
+					OutOfScope:     fetched_program.OutOfScope,
+				}
 			}
 
 			// cache the program
@@ -104,7 +111,6 @@ func FetchSubdomains(program_list *map[string]*cachesnake.BBProgram, db_client *
 			SubLock:       sync.Mutex{},
 			CookieList:    make([]*fasthttp.Cookie, 0),
 		}
-
 		result = append(result, &subdomain)
 	}
 
