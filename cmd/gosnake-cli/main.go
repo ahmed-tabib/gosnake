@@ -2,7 +2,9 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"automation.com/cachesnake"
@@ -12,7 +14,13 @@ func main() {
 	cfg_file := flag.String("c", "config.yaml", "Path to the config file")
 	flag.Parse()
 
+	log_file, err := os.OpenFile("gosnake.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatal("Could not open gosnake.log")
+	}
+
 	log.SetFlags(log.Ldate | log.Ltime)
+	log.SetOutput(log_file)
 	log.Println("[MAIN] CACHESNAKE STARTUP SEQUENCE BEGIN. CONFIG AT \"" + *cfg_file + "\"")
 
 	stats := &Statistics{StartTime: time.Now()}
@@ -71,6 +79,39 @@ func main() {
 			log.Println("[MAIN] Triage channel closed, exiting.")
 			break
 		}
+
+		log.Println("[MAIN] INCOMING VULN REPORT")
+		message := "----------[VULN REPORT]----------\n" +
+			"[Current Time]: " + time.Now().UTC().Format(time.RFC3339) + "\n" +
+			"[Attack Started]: " + result.TimeStarted.UTC().Format(time.RFC3339) + "\n" +
+			"[Attack Stopped]: " + result.TimeStopped.UTC().Format(time.RFC3339) + "\n" +
+			"[Time Elapsed]: " + result.TimeStopped.Sub(result.TimeStarted).Round(time.Millisecond).String() + "\n\n" +
+
+			"[Program Info]: \n" +
+			"    Name:         " + result.Target.ParentSubdomain.ParentProgram.ProgramName + "\n" +
+			"    Platform:     " + result.Target.ParentSubdomain.ParentProgram.Platform + "\n" +
+			"    Program URL:  " + result.Target.ParentSubdomain.ParentProgram.ProgramURL + "\n" +
+			"    Has Bounties: " + fmt.Sprint(result.Target.ParentSubdomain.ParentProgram.OffersBounties) + "\n\n" +
+
+			"[Target Info]: \n" +
+			"    Subdomain: " + result.Target.ParentSubdomain.Value + "\n" +
+			"    URL: \"" + result.Target.TargetURL + "\"\n\n" +
+
+			"[Vulns Found]: " + fmt.Sprint(len(result.VulnList)) + "\n\n"
+
+		for i, v := range result.VulnList {
+			message += fmt.Sprintf("[Vuln %d]: \n", i+1) +
+				"    Name:    " + v.Name + "\n" +
+				"    Details: " + v.Details + "\n" +
+				"    Headers: \n"
+			for _, h := range v.OffendingHeaders {
+				message += "        \"" + h + "\"\n"
+			}
+			message += "    Impact: " + fmt.Sprint(v.Impact) + "\n" +
+				"    Found At: " + v.TimeFound.Format(time.RFC3339) + "\n\n"
+		}
+
+		log.Print(message)
 
 		notif.SendResult(result)
 		result = nil

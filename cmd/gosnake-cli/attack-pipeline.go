@@ -75,6 +75,9 @@ func Stage1_Subdomains(params StageParams) {
 func Stage2_Targets(params StageParams) {
 	var wg sync.WaitGroup
 
+	// to avoid duplicates, we store all the targets we created
+	crawled_targets := make(map[string]int)
+
 	for i := 0; i < params.Cfg.Crawler.Threads; i++ {
 		wg.Add(1)
 
@@ -92,8 +95,35 @@ func Stage2_Targets(params StageParams) {
 					break
 				}
 
+				// HACK: GenerateTargets outputs directly to a channel. Unfortunately, we didn't take into account that it may
+				// generate duplicates accross different subdomains. So we have to intercept its output and check if it's a
+				// duplicate then forward it to the output channel.
+				dup_check_chan := make(chan *cachesnake.AttackTarget)
+
+				go func() {
+					for {
+						target, ok := <-dup_check_chan
+
+						if !ok {
+							break
+						}
+
+						_, exists := crawled_targets[target.TargetURL]
+
+						if exists {
+							log.Printf("[Target-Thread:%d] Already checked \"%v\", skipping\n", ThreadIdx, target.TargetURL)
+							continue
+						}
+
+						crawled_targets[target.TargetURL] = 1
+						params.OutputChannel.(chan *cachesnake.AttackTarget) <- target
+					}
+				}()
+
 				log.Printf("[Target-Thread:%d] Generating targets for subdomain \"%v\"\n", ThreadIdx, subdomain[0].Value)
-				cachesnake.GenerateTargets(subdomain, params.Cfg.Crawler.TargetsPerSubdomain, params.Cfg.Crawler.Timeout, params.Cfg.Crawler.Backoff, params.Cfg.UserAgent, params.Cfg.Crawler.Regexes, params.OutputChannel.(chan *cachesnake.AttackTarget))
+				cachesnake.GenerateTargets(subdomain, params.Cfg.Crawler.TargetsPerSubdomain, params.Cfg.Crawler.Timeout, params.Cfg.Crawler.Backoff, params.Cfg.UserAgent, params.Cfg.Crawler.Regexes, dup_check_chan)
+
+				close(dup_check_chan)
 
 				params.Stats.Subdomains.CrawlMutex.Lock()
 				params.Stats.Subdomains.TotalCrawled++
@@ -230,6 +260,8 @@ func Stage4_Triage(params StageParams) {
 						})
 						triage_result.VulnList = vuln_intersection
 						params.OutputChannel.(chan *cachesnake.AttackResult) <- &triage_result
+
+						log.Printf("[Triage-Thread:%d] TARGET VULNERABLE: \"%v\"\n", ThreadIdx, triage_result.Target.TargetURL)
 
 						params.Stats.Vulns.FoundMutex.Lock()
 						params.Stats.Vulns.TotalFound++
