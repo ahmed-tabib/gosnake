@@ -77,6 +77,7 @@ func Stage2_Targets(params StageParams) {
 
 	// to avoid duplicates, we store all the targets we created
 	crawled_targets := make(map[string]int)
+	var crawled_targets_lock sync.Mutex
 
 	for i := 0; i < params.Cfg.Crawler.Threads; i++ {
 		wg.Add(1)
@@ -108,14 +109,18 @@ func Stage2_Targets(params StageParams) {
 							break
 						}
 
+						crawled_targets_lock.Lock()
 						_, exists := crawled_targets[target.TargetURL]
+						crawled_targets_lock.Unlock()
 
 						if exists {
 							log.Printf("[Target-Thread:%d] Already checked \"%v\", skipping\n", ThreadIdx, target.TargetURL)
 							continue
 						}
 
+						crawled_targets_lock.Lock()
 						crawled_targets[target.TargetURL] = 1
+						crawled_targets_lock.Unlock()
 						params.OutputChannel.(chan *cachesnake.AttackTarget) <- target
 					}
 				}()
